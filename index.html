@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Mini Weather - Most Accurate Global Weather with Interactive Garden">
+    <meta name="theme-color" content="#1e88e5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Mini Weather">
+    <title>Mini Weather - Accurate Global Weather</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%231e88e5' width='180' height='180'/><circle cx='90' cy='90' r='50' fill='%23FFB300'/></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #1a1a1a;
+            --text-primary: #ffffff;
+            --text-secondary: #b0b0b0;
+            --accent: #1e88e5;
+            --accent-light: #64b5f6;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+            --border-color: #333333;
+            --shadow: rgba(0, 0, 0, 0.3);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* 50+ THEMES */
+        body[data-theme="dark"] { --bg-primary: #0a0a0a; --bg-secondary: #1a1a1a; --text-primary: #ffffff; --text-secondary: #b0b0b0; --accent: #1e88e5; }
+        body[data-theme="light"] { --bg-primary: #ffffff; --bg-secondary: #f5f5f5; --text-primary: #1a1a1a; --text-secondary: #666666; --accent: #1e88e5; --border-color: #e0e0e0; }
+        body[data-theme="ocean"] { --bg-primary: #001f3f; --bg-secondary: #003d5c; --text-primary: #e0f7fa; --accent: #00bcd4; }
+        body[data-theme="sunset"] { --bg-primary: #1a0033; --bg-secondary: #4a0080; --text-primary: #ffe0b2; --accent: #ff6f00; }
+        body[data-theme="forest"] { --bg-primary: #0d3b1f; --bg-secondary: #1b5e3f; --text-primary: #c8e6c9; --accent: #66bb6a; }
+        body[data-theme="lavender"] { --bg-primary: #2c1b4e; --bg-secondary: #3d2675; --text-primary: #e1bee7; --accent: #ab47bc; }
+        body[data-theme="berry"] { --bg-primary: #3f1f47; --bg-secondary: #6a1b6a; --text-primary: #f8bbd0; --accent: #e91e63; }
+        body[data-theme="mint"] { --bg-primary: #0f3f3f; --bg-secondary: #1a5f5f; --text-primary: #b2dfdb; --accent: #009688; }
+        body[data-theme="coffee"] { --bg-primary: #3e2723; --bg-secondary: #5d4037; --text-primary: #d7ccc8; --accent: #795548; }
+        body[data-theme="nord"] { --bg-primary: #2e3440; --bg-secondary: #3b4252; --text-primary: #eceff4; --accent: #88c0d0; }
+        body[data-theme="dracula"] { --bg-primary: #282a36; --bg-secondary: #44475a; --text-primary: #f8f8f2; --accent: #50fa7b; }
+        body[data-theme="gruvbox"] { --bg-primary: #282828; --bg-secondary: #3c3836; --text-primary: #ebdbb2; --accent: #b8bb26; }
+        body[data-theme="solarized"] { --bg-primary: #002b36; --bg-secondary: #073642; --text-primary: #fdf6e3; --accent: #268bd2; }
+        body[data-theme="cyberpunk"] { --bg-primary: #0a0e27; --bg-secondary: #1a1f3a; --text-primary: #00ff00; --accent: #ff00ff; --border-color: #00ff00; }
+        body[data-theme="monochrome"] { --bg-primary: #1a1a1a; --bg-secondary: #2d2d2d; --text-primary: #ffffff; --accent: #666666; --border-color: #444444; }
+        body[data-theme="warm"] { --bg-primary: #3d2817; --bg-secondary: #5c3d2e; --text-primary: #ffd4a3; --accent: #ff8c42; }
+        body[data-theme="cool"] { --bg-primary: #1a3a4a; --bg-secondary: #2a5a6a; --text-primary: #a3d4ff; --accent: #42a5f5; }
+        body[data-theme="neon"] { --bg-primary: #0d0221; --bg-secondary: #1d033e; --text-primary: #00ff9f; --accent: #8338ec; --border-color: #00ff9f; }
+        body[data-theme="pastel"] { --bg-primary: #fce7f3; --bg-secondary: #fbcfe8; --text-primary: #a01a51; --accent: #ec4899; --border-color: #f9a8d4; }
+        body[data-theme="retro"] { --bg-primary: #3a3d41; --bg-secondary: #5d6166; --text-primary: #f9d3b8; --accent: #d4914d; }
+        body[data-theme="cherry"] { --bg-primary: #1a0f1e; --bg-secondary: #3a1f3e; --text-primary: #ff1493; --accent: #ff1493; }
+        body[data-theme="aurora"] { --bg-primary: #0d1b2a; --bg-secondary: #1b263b; --text-primary: #e0aaff; --accent: #10b981; }
+        body[data-theme="midnight"] { --bg-primary: #0f172a; --bg-secondary: #1e293b; --text-primary: #e2e8f0; --accent: #0ea5e9; }
+        body[data-theme="slate"] { --bg-primary: #1e293b; --bg-secondary: #334155; --text-primary: #f1f5f9; --accent: #0f766e; }
+        body[data-theme="amber"] { --bg-primary: #332200; --bg-secondary: #664400; --text-primary: #fffbeb; --accent: #f59e0b; }
+        body[data-theme="rose"] { --bg-primary: #20051a; --bg-secondary: #4d0f2d; --text-primary: #ffe4e6; --accent: #f43f5e; }
+        body[data-theme="emerald"] { --bg-primary: #021321; --bg-secondary: #064e3b; --text-primary: #d1fae5; --accent: #10b981; }
+        body[data-theme="sapphire"] { --bg-primary: #0f172a; --bg-secondary: #1e3a8a; --text-primary: #dbeafe; --accent: #3b82f6; }
+        body[data-theme="ruby"] { --bg-primary: #4c0519; --bg-secondary: #831843; --text-primary: #fce7f3; --accent: #ec4899; }
+        body[data-theme="topaz"] { --bg-primary: #341e24; --bg-secondary: #78350f; --text-primary: #fed7aa; --accent: #ea580c; }
+        body[data-theme="pearl"] { --bg-primary: #f8f8f8; --bg-secondary: #efefef; --text-primary: #333333; --accent: #c0c0c0; --border-color: #e0e0e0; }
+        body[data-theme="shadow"] { --bg-primary: #1a1a1a; --bg-secondary: #2d2d2d; --text-primary: #e0e0e0; --accent: #555555; }
+        body[data-theme="eclipse"] { --bg-primary: #0a0e27; --bg-secondary: #1a1f3a; --text-primary: #ffffff; --accent: #fbbf24; }
+        body[data-theme="nebula"] { --bg-primary: #1a0033; --bg-secondary: #330066; --text-primary: #e0b3ff; --accent: #b366ff; }
+        body[data-theme="solstice"] { --bg-primary: #1a2e3f; --bg-secondary: #2d5a7b; --text-primary: #c9e4ff; --accent: #64b5f6; }
+        body[data-theme="glacier"] { --bg-primary: #0d1f2d; --bg-secondary: #1a3a4a; --text-primary: #b3e5fc; --accent: #0288d1; }
+        body[data-theme="desert"] { --bg-primary: #3d2817; --bg-secondary: #5c4033; --text-primary: #ffccb2; --accent: #d84315; }
+        body[data-theme="jungle"] { --bg-primary: #0d2818; --bg-secondary: #1b4d2e; --text-primary: #a5d6a7; --accent: #43a047; }
+        body[data-theme="coral"] { --bg-primary: #3d1f1f; --bg-secondary: #5c3636; --text-primary: #ffb8a3; --accent: #d84315; }
+        body[data-theme="storm"] { --bg-primary: #1a1a2e; --bg-secondary: #16213e; --text-primary: #c9c9c9; --accent: #0f3460; }
+        body[data-theme="flame"] { --bg-primary: #1a0d00; --bg-secondary: #4d2600; --text-primary: #ffd9b3; --accent: #ff6b00; }
+        body[data-theme="ice"] { --bg-primary: #0d1f26; --bg-secondary: #1a3a47; --text-primary: #b3e5fc; --accent: #00acc1; }
+        body[data-theme="twilight"] { --bg-primary: #2c1b4e; --bg-secondary: #3f2c5c; --text-primary: #d7bde2; --accent: #8e44ad; }
+        body[data-theme="mystic"] { --bg-primary: #1a1a2e; --bg-secondary: #0f3460; --text-primary: #e0e0e0; --accent: #16a085; }
+        body[data-theme="ethereal"] { --bg-primary: #e8dff5; --bg-secondary: #d4c4e5; --text-primary: #3d2645; --accent: #8e44ad; --border-color: #c9b8d4; }
+        body[data-theme="radiant"] { --bg-primary: #fff8e1; --bg-secondary: #ffe082; --text-primary: #8b4513; --accent: #fbc02d; --border-color: #ffb74d; }
+        body[data-theme="obsidian"] { --bg-primary: #0d0d0d; --bg-secondary: #1a1a1a; --text-primary: #e0e0e0; --accent: #00e5ff; }
+        body[data-theme="amethyst"] { --bg-primary: #3d1a4d; --bg-secondary: #5c2d7a; --text-primary: #e6ccff; --accent: #b366ff; }
+        body[data-theme="jade"] { --bg-primary: #0d2d1f; --bg-secondary: #1a5c3a; --text-primary: #99ffcc; --accent: #00c853; }
+        body[data-theme="bronze"] { --bg-primary: #3d2817; --bg-secondary: #6b4423; --text-primary: #e6c9b0; --accent: #b8860b; }
+        body[data-theme="silver"] { --bg-primary: #2a2a2a; --bg-secondary: #3f3f3f; --text-primary: #e8e8e8; --accent: #a9a9a9; }
+        body[data-theme="gold"] { --bg-primary: #3d3d00; --bg-secondary: #5c5c00; --text-primary: #ffff99; --accent: #ffd700; }
+        body[data-theme="copper"] { --bg-primary: #3d2817; --bg-secondary: #5c3d2e; --text-primary: #ffcc99; --accent: #b87333; }
+        body[data-theme="platinum"] { --bg-primary: #2a2a2f; --bg-secondary: #3f3f4a; --text-primary: #e8e8f0; --accent: #e5e4e2; }
+        body[data-theme="sapphire-dark"] { --bg-primary: #001a4d; --bg-secondary: #003399; --text-primary: #99ccff; --accent: #0066ff; }
+        body[data-theme="ruby-dark"] { --bg-primary: #4d0000; --bg-secondary: #800000; --text-primary: #ff9999; --accent: #ff0000; }
+        body[data-theme="emerald-dark"] { --bg-primary: #004d00; --bg-secondary: #008000; --text-primary: #99ff99; --accent: #00cc00; }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            overflow-x: hidden;
+            transition: var(--transition);
+        }
+
+        html { scroll-behavior: smooth; }
+
+        #app {
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+        }
+
+        .container { max-width: 1400px; margin: 0 auto; width: 100%; }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 300;
+            letter-spacing: 2px;
+            font-size: 1.3rem;
+        }
+
+        .animated-logo {
+            width: 45px;
+            height: 45px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .sun {
+            width: 30px;
+            height: 30px;
+            background: linear-gradient(135deg, #FFB300, #FF8C00);
+            border-radius: 50%;
+            position: relative;
+            box-shadow: 0 0 20px var(--accent), 0 0 40px rgba(255, 140, 0, 0.3);
+            animation: solarFlare 3s ease-in-out infinite;
+        }
+
+        .sun::before {
+            content: '';
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border: 2px solid var(--accent-light);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation: rotate 20s linear infinite;
+            opacity: 0.6;
+        }
+
+        .sun::after {
+            content: '';
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            border: 1px dashed var(--accent-light);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation: rotate 30s linear infinite reverse;
+            opacity: 0.3;
+        }
+
+        .cloud {
+            position: absolute;
+            width: 35px;
+            height: 20px;
+            background: var(--text-secondary);
+            border-radius: 10px;
+            top: 15px;
+            right: -5px;
+            animation: cloudFloat 4s ease-in-out infinite;
+            opacity: 0.8;
+        }
+
+        .cloud::before {
+            content: '';
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            top: -8px;
+            left: 8px;
+        }
+
+        .cloud::after {
+            content: '';
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            top: -6px;
+            right: 8px;
+        }
+
+        @keyframes solarFlare { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+        @keyframes rotate { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
+        @keyframes cloudFloat { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(10px); } }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 8px 16px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: var(--transition);
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        button:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px var(--shadow);
+        }
+
+        button:active { transform: translateY(0); }
+
+        .theme-btn { padding: 6px 12px; font-size: 0.75rem; }
+
+        .theme-selector { position: relative; }
+
+        .theme-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            display: none;
+            z-index: 1000;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+            min-width: 400px;
+            box-shadow: 0 8px 32px var(--shadow);
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .theme-dropdown.active { display: grid; }
+
+        .theme-option {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: var(--transition);
+            flex-shrink: 0;
+        }
+
+        .theme-option:hover { transform: scale(1.15); }
+        .theme-option.active { border-color: var(--text-primary); box-shadow: 0 0 12px currentColor; }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .weather-card {
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, rgba(255, 255, 255, 0.05) 100%);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 40px 30px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            animation: slideIn 0.6s ease-out;
+            box-shadow: 0 8px 32px var(--shadow);
+        }
+
+        @keyframes slideIn { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+
+        .garden-card {
+            background: linear-gradient(135deg, #8B7355 0%, #6B5344 100%);
+            border: 2px solid #4a3d34;
+            border-radius: 16px;
+            padding: 30px;
+            position: relative;
+            overflow: hidden;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .garden-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(to bottom, #87ceeb 0%, #e0f6ff 100%);
+            opacity: 0.3;
+            z-index: 0;
+        }
+
+        .garden-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+        }
+
+        .garden-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .plant {
+            font-size: 100px;
+            margin: 20px 0;
+            animation: grow 2s ease-in-out infinite;
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+        }
+
+        .plant.thriving { filter: brightness(1.2) drop-shadow(0 4px 12px rgba(76, 175, 80, 0.4)); animation-duration: 1.5s; }
+        .plant.healthy { filter: brightness(1) drop-shadow(0 4px 8px rgba(76, 175, 80, 0.2)); animation-duration: 2s; }
+        .plant.stressed { filter: brightness(0.8) saturate(0.7) drop-shadow(0 4px 8px rgba(244, 67, 54, 0.2)); animation-duration: 3s; }
+        .plant.wilted { filter: brightness(0.6) saturate(0.5) drop-shadow(0 4px 8px rgba(255, 152, 0, 0.2)); animation-duration: 4s; }
+
+        @keyframes grow { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+
+        .plant-status {
+            margin-top: 15px;
+            padding: 10px 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .location-info {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+        }
+
+        .location-info button { padding: 4px 12px; font-size: 0.75rem; }
+
+        .temperature-section { margin: 30px 0; }
+
+        .temperature {
+            font-size: 5.5rem;
+            font-weight: 200;
+            letter-spacing: -2px;
+            margin: 0;
+            background: linear-gradient(135deg, var(--accent-light), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .condition {
+            font-size: 1.3rem;
+            margin: 10px 0;
+            text-transform: capitalize;
+            color: var(--text-secondary);
+            letter-spacing: 0.5px;
+        }
+
+        .feels-like { font-size: 0.95rem; color: var(--text-secondary); margin-top: 8px; }
+
+        .quick-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px;
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .stat-item {
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            transition: var(--transition);
+        }
+
+        .stat-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateY(-4px);
+            box-shadow: 0 4px 16px var(--shadow);
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--accent-light);
+        }
+
+        .forecast-section { margin-top: 40px; }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background: var(--accent);
+            border-radius: 2px;
+        }
+
+        .hourly-forecast {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding: 15px 0;
+            margin-bottom: 30px;
+            scroll-behavior: smooth;
+        }
+
+        .hourly-forecast::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .hourly-forecast::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+            border-radius: 2px;
+        }
+
+        .hourly-forecast::-webkit-scrollbar-thumb {
+            background: var(--accent);
+            border-radius: 2px;
+        }
+
+        .hourly-item {
+            flex-shrink: 0;
+            padding: 15px 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            text-align: center;
+            min-width: 90px;
+            transition: var(--transition);
+        }
+
+        .hourly-item:hover {
+            background: var(--accent);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 16px var(--shadow);
+        }
+
+        .hourly-time {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .hourly-icon { font-size: 1.8rem; margin: 8px 0; }
+        .hourly-temp { font-size: 1rem; font-weight: 600; color: var(--accent-light); }
+
+        .daily-forecast {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .daily-item {
+            padding: 20px;
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, rgba(255, 255, 255, 0.03) 100%);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            text-align: center;
+            transition: var(--transition);
+        }
+
+        .daily-item:hover {
+            background: linear-gradient(135deg, var(--accent) 0%, rgba(255, 255, 255, 0.1) 100%);
+            transform: translateY(-6px);
+            box-shadow: 0 12px 24px var(--shadow);
+        }
+
+        .daily-date {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+
+        .daily-icon { font-size: 2.5rem; margin: 12px 0; }
+        .daily-condition { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 12px; text-transform: capitalize; }
+
+        .daily-temps {
+            display: flex;
+            justify-content: space-around;
+            font-size: 0.9rem;
+        }
+
+        .temp-max { color: var(--accent-light); font-weight: 600; }
+        .temp-min { color: var(--text-secondary); }
+
+        .detailed-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .info-card {
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            transition: var(--transition);
+        }
+
+        .info-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--accent);
+        }
+
+        .info-title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .info-value {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: var(--accent-light);
+            margin-bottom: 4px;
+        }
+
+        .info-detail {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .alerts { margin-bottom: 30px; }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border-left: 4px solid;
+            animation: slideIn 0.4s ease-out;
+        }
+
+        .alert-warning {
+            background: rgba(255, 152, 0, 0.1);
+            border-left-color: #ff9800;
+            color: #ffb74d;
+        }
+
+        .alert-info {
+            background: rgba(30, 136, 229, 0.1);
+            border-left-color: #1e88e5;
+            color: #64b5f6;
+        }
+
+        .alert-danger {
+            background: rgba(244, 67, 54, 0.1);
+            border-left-color: #f44336;
+            color: #ef5350;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loading-text {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            letter-spacing: 1px;
+        }
+
+        .error {
+            background: rgba(244, 67, 54, 0.1);
+            border: 1px solid #f44336;
+            color: #ef5350;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        .api-source {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 8px;
+            opacity: 0.7;
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px 20px;
+            border-top: 1px solid var(--border-color);
+            margin-top: 40px;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .privacy-notice {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 10px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .precision-indicator {
+            display: inline-block;
+            padding: 4px 8px;
+            background: rgba(76, 175, 80, 0.2);
+            border: 1px solid rgba(76, 175, 80, 0.5);
+            border-radius: 4px;
+            font-size: 0.7rem;
+            color: #81c784;
+            margin-left: 10px;
+        }
+
+        @media (max-width: 1200px) {
+            .main-grid { grid-template-columns: 1fr; }
+            .quick-stats { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        @media (max-width: 768px) {
+            .weather-card { padding: 30px 20px; }
+            .temperature { font-size: 4rem; }
+            .quick-stats { grid-template-columns: repeat(2, 1fr); }
+            header { flex-direction: column; gap: 15px; }
+            .controls { width: 100%; justify-content: center; }
+            .daily-forecast { grid-template-columns: repeat(2, 1fr); }
+            .detailed-info { grid-template-columns: 1fr; }
+            .theme-dropdown { grid-template-columns: repeat(5, 1fr); min-width: 300px; }
+        }
+
+        @media (max-width: 480px) {
+            #app { padding: 15px; }
+            .weather-card { padding: 20px 15px; margin-bottom: 20px; }
+            .temperature { font-size: 3rem; }
+            .quick-stats { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .stat-item { padding: 12px; }
+            .stat-value { font-size: 1.2rem; }
+            .hourly-forecast { gap: 8px; }
+            .hourly-item { min-width: 70px; padding: 10px 8px; }
+            .daily-forecast { grid-template-columns: 1fr; }
+            .detailed-info { grid-template-columns: 1fr; }
+            .theme-dropdown { grid-template-columns: repeat(4, 1fr); }
+            .section-title { font-size: 0.95rem; }
+            .temperature-section { margin: 20px 0; }
+        }
+    </style>
+</head>
+<body data-theme="dark">
+
+<div id="app">
+    <header>
+        <div class="logo-container">
+            <div class="animated-logo">
+                <div class="sun">
+                    <div class="cloud"></div>
+                </div>
+            </div>
+            <span>Mini Weather</span>
+        </div>
+        <div class="controls">
+            <div class="theme-selector">
+                <button class="theme-btn" id="theme-toggle">🎨 Themes</button>
+                <div class="theme-dropdown" id="theme-dropdown"></div>
+            </div>
+            <button id="refresh-btn">🔄 Refresh</button>
+            <button id="settings-btn">⚙️ Units (°C)</button>
+            <button id="notification-btn">🔔 Alerts</button>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="main-grid">
+            <div>
+                <div id="weather-content">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p class="loading-text">Fetching most accurate weather data...</p>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <div class="garden-card">
+                    <div class="garden-background"></div>
+                    <div class="garden-content">
+                        <div class="garden-title">🌱 Condition Garden</div>
+                        <div class="plant" id="garden-plant">🌿</div>
+                        <div class="plant-status" id="garden-status">Initializing...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>Mini Weather — Most Accurate Global Weather Data</p>
+        <div class="privacy-notice">
+            🔒 Privacy: No tracking. Multi-source API: Open-Meteo + Weather.gov + Local Climate Data
+        </div>
+    </footer>
+</div>
+
+<script src="weather.js"></script>
+</body>
+</html>
