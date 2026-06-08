@@ -35,6 +35,12 @@ class WeatherAPI {
         });
         return this.fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
     }
+
+    static async getNomimatin(lat, lon) {
+        return this.fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`
+        );
+    }
 }
 
 module.exports = WeatherAPI;
