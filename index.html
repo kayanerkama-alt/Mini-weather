@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
-    <meta name="description" content="Mini Weather - Fast, Accurate, AI-Powered Weather">
+    <meta name="description" content="Mini Weather - Fast, Accurate, AI-Powered Weather with Virtual Garden">
     <meta name="theme-color" content="#1e88e5">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -67,6 +67,7 @@
         .controls {
             display: flex;
             gap: 8px;
+            flex-wrap: wrap;
         }
 
         button {
@@ -84,6 +85,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            font-family: inherit;
         }
 
         button:active { transform: scale(0.95); }
@@ -141,6 +143,7 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            font-variant-numeric: tabular-nums;
         }
 
         .condition { font-size: 1rem; color: var(--text-dim); margin: 8px 0; text-transform: capitalize; }
@@ -164,7 +167,7 @@
         }
 
         .stat-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); margin-bottom: 6px; }
-        .stat-value { font-size: 1.2rem; font-weight: 600; color: #64b5f6; }
+        .stat-value { font-size: 1.2rem; font-weight: 600; color: #64b5f6; font-variant-numeric: tabular-nums; }
 
         .insights-section {
             margin-top: 20px;
@@ -202,8 +205,8 @@
         }
 
         .hour-time { font-size: 0.7rem; color: var(--text-dim); margin-bottom: 6px; }
-        .hour-icon { font-size: 1.4rem; margin: 6px 0; }
-        .hour-temp { font-size: 0.9rem; font-weight: 600; color: #64b5f6; }
+        .hour-icon { font-size: 1.4rem; margin: 6px 0; line-height: 1.4rem; }
+        .hour-temp { font-size: 0.9rem; font-weight: 600; color: #64b5f6; font-variant-numeric: tabular-nums; }
 
         .daily {
             display: grid;
@@ -221,10 +224,10 @@
         }
 
         .day-date { font-size: 0.75rem; color: var(--text-dim); margin-bottom: 8px; }
-        .day-icon { font-size: 1.8rem; margin: 8px 0; }
+        .day-icon { font-size: 1.8rem; margin: 8px 0; line-height: 1.8rem; }
         .day-temps { display: flex; justify-content: space-around; font-size: 0.8rem; margin-top: 8px; }
-        .day-max { color: #64b5f6; font-weight: 600; }
-        .day-min { color: var(--text-dim); }
+        .day-max { color: #64b5f6; font-weight: 600; font-variant-numeric: tabular-nums; }
+        .day-min { color: var(--text-dim); font-variant-numeric: tabular-nums; }
 
         .alerts {
             margin-top: 16px;
@@ -244,6 +247,44 @@
         .alert-high { background: rgba(244,67,54,0.1); border-left-color: #f44336; color: #ef5350; }
         .alert-medium { background: rgba(255,152,0,0.1); border-left-color: #ff9800; color: #ffb74d; }
         .alert-low { background: rgba(30,136,229,0.1); border-left-color: #1e88e5; color: #64b5f6; }
+
+        /* Virtual Garden Styles */
+        .garden-section {
+            background: linear-gradient(135deg, var(--bg-alt) 0%, rgba(100,181,246,0.1) 100%);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            margin-top: 16px;
+        }
+
+        .garden-canvas {
+            width: 100%;
+            height: 300px;
+            background: linear-gradient(180deg, rgba(100,200,150,0.1) 0%, rgba(50,100,80,0.1) 100%);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-top: 16px;
+            display: block;
+        }
+
+        .garden-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+            font-size: 0.85rem;
+        }
+
+        .garden-stat {
+            padding: 8px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .garden-stat-label { color: var(--text-dim); font-size: 0.75rem; }
+        .garden-stat-value { font-weight: 600; color: #64b5f6; margin-top: 4px; }
 
         .loading {
             text-align: center;
@@ -338,6 +379,7 @@
             .stat { padding: 10px 8px; }
             .daily { grid-template-columns: repeat(auto-fit, minmax(95px, 1fr)); }
             button { padding: 6px 10px; font-size: 0.75rem; }
+            .garden-canvas { height: 200px; }
         }
 
         @media (min-width: 1024px) and (orientation: landscape) {
@@ -352,10 +394,11 @@
     <header>
         <div class="logo">☀️ Mini Weather</div>
         <div class="controls">
-            <button id="location-btn" title="Get Location">📍</button>
-            <button id="api-btn" title="API Source">🔌</button>
-            <button id="unit-btn" title="°C/°F">°C</button>
-            <button id="refresh-btn" title="Refresh">🔄</button>
+            <button id="location-btn" title="Get Location" aria-label="Get Location">📍</button>
+            <button id="api-btn" title="API Source" aria-label="API Source">🔌</button>
+            <button id="unit-btn" title="°C/°F" aria-label="Toggle Temperature Unit">°C</button>
+            <button id="refresh-btn" title="Refresh" aria-label="Refresh Weather">🔄</button>
+            <button id="notify-btn" title="Toggle Notifications" aria-label="Toggle Notifications" style="display: none;">🔔</button>
         </div>
     </header>
 
@@ -374,8 +417,30 @@
         </div>
     </div>
 
+    <div id="garden-container" style="display: none;">
+        <div class="garden-section">
+            <div class="section-title">Virtual Garden</div>
+            <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 12px;">Your garden grows with real-time weather conditions</p>
+            <canvas id="garden-canvas" class="garden-canvas"></canvas>
+            <div class="garden-info">
+                <div class="garden-stat">
+                    <div class="garden-stat-label">Health</div>
+                    <div class="garden-stat-value" id="garden-health">100%</div>
+                </div>
+                <div class="garden-stat">
+                    <div class="garden-stat-label">Growth</div>
+                    <div class="garden-stat-value" id="garden-growth">Level 1</div>
+                </div>
+                <div class="garden-stat">
+                    <div class="garden-stat-label">Plants</div>
+                    <div class="garden-stat-value" id="garden-plants">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <footer>
-        <p>Mini Weather • Fast • Accurate • AI-Powered</p>
+        <p>Mini Weather • Fast • Accurate • Privacy-First</p>
     </footer>
 </div>
 
@@ -389,4 +454,3 @@
 <script src="app.js"></script>
 </body>
 </html>
-
