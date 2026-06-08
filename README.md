@@ -1,263 +1,254 @@
-# 🌍 Mini Weather - Real-time Global Weather App
+# Mini Weather 🌤️
 
-**Ultra-fast, privacy-first weather with real-time updates, optimized for Railway, iOS, iPad, and all mobile devices**
+**Fast, Accurate, AI-Powered Weather App**
 
-## ⚡ Real-Time Features
+A modern weather application with real-time data, AI insights, and multiple weather API sources.
 
-- **30-second weather updates** - Always current data
-- **Real-time location tracking** - 5-minute location refresh
-- **Live time display** - Synchronized with server
-- **Background sync** - Updates even when app backgrounded
-- **Instant notifications** - Push alerts in real-time
+## ✨ Features
 
-## 📱 Device Optimization
+### 🌍 Multi-API Support
+- **WeatherAPI** (Primary): Fast, accurate, real-time data with alerts
+- **Open-Meteo**: Free, no API key, global coverage
+- **National Weather Service**: US-only, government data
 
-### iOS/iPad Optimized
-✅ Safe area insets (notch, home indicator)
-✅ Haptic feedback ready
-✅ Full-screen webapp support
-✅ Swipe navigation ready
-✅ Landscape/portrait support
-✅ Edge-to-edge display
-✅ No address bar interference
+### 🤖 AI-Powered Insights
+- Smart weather alerts (heat, cold, UV, wind)
+- Activity recommendations
+- Air quality warnings
+- Personalized safety tips
 
-### Railway/Mobile Optimized
-✅ Minimal network footprint
-✅ Optimized for slow connections
-✅ Tiny bundle size (~50KB)
-✅ Fast load times
-✅ Progressive enhancement
-✅ Touch-first interface
-✅ 44px+ touch targets
-✅ No hover states on mobile
+### 📊 Comprehensive Weather Data
+- **Current**: Temperature, humidity, wind, pressure, UV index, visibility
+- **Hourly**: 72-hour forecast with precipitation probability
+- **Daily**: 14-day forecast with sunrise/sunset times
+- **Alerts**: Weather warnings and severe weather alerts
 
-### Platform Support
-- ✅ iOS 15+ (Full support)
-- ✅ iPadOS 15+ (Multi-window)
-- ✅ Android 5+
-- ✅ Windows 11
-- ✅ macOS 11+
-- ✅ Linux
+### ⚡ Performance
+- 10-minute intelligent caching
+- Optimized API responses
+- Fast location lookup
+- Offline support via service worker
 
-## 🔐 Privacy & Security
+### 🔒 Privacy First
+- No tracking or analytics
+- Location data anonymized
+- Whitelisted API domains only
+- All data stays local
 
-### Zero-Tracking Architecture
-- ✅ **No analytics** - No event tracking
-- ✅ **No cookies** - No persistent tracking
-- ✅ **No fingerprinting** - No device ID tracking
-- ✅ **No third-party** - No external services
-- ✅ **Local only** - All data stored locally
-- ✅ **GDPR compliant** - Full privacy
-- ✅ **Clear data button** - One-click purge
-- ✅ **Open-source** - Full transparency
+### 📱 Responsive Design
+- Mobile-first approach
+- Works on all devices
+- Touch-optimized controls
+- Dark theme by default
 
-### Data Protection
-- Location used only for weather fetching
-- No location storage
-- No user profile creation
-- No data sharing
-- All data in-app only
-- Automatic data cleanup
+## 🚀 Quick Start
 
-## 🎨 50+ Beautiful Themes
-
-Dark, Light, Ocean, Sunset, Forest, Lavender, Berry, Mint, Coffee, Nord, Dracula, Gruvbox, Solarized, Cyberpunk, Monochrome, Warm, Cool, Neon, Pastel, Retro, Cherry, Aurora, Midnight, Slate, Amber, Rose, Emerald, Sapphire, Ruby, Topaz, Pearl, Shadow, Eclipse, Nebula, Solstice, Glacier, Desert, Jungle, Coral, Storm, Flame, Ice, Twilight, Mystic, Ethereal, Radiant, Obsidian, Amethyst, Jade, Bronze, Silver, Gold, Copper, Platinum
-
-## ⚡ Real-Time Weather Data
-
-### Current Conditions
-- Real-time temperature
-- Wind speed, gusts, direction
-- Humidity percentage
-- UV Index
-- Atmospheric pressure
-- Visibility
-- Cloud coverage
-- Precipitation
-- Apparent temperature
-
-### Forecasts
-- 24-hour hourly updates
-- 7-day daily forecast
-- Real-time precipitation alerts
-- Wind warnings
-- UV alerts
-
-### Location Data
-- Precise geolocation
-- Accuracy display (meters)
-- Local timezone detection
-- Real-time clock
-- Reverse geocoding
-
-## 🚀 Getting Started
-
-### Quick Deploy to Railway
+### Local Development
 
 ```bash
-# Clone
-git clone https://github.com/kayan4bit/mini-weather.git
-cd mini-weather
+# Install dependencies
+npm install
 
-# Deploy with Railway CLI
-railway up
+# Start development server
+npm run dev
+
+# Server runs on http://localhost:3000
 ```
 
-### Local Testing
+### Environment Variables
 
 ```bash
-# Python
-python -m http.server 8000
-
-# Node.js
-npx serve
-
-# PHP
-php -S localhost:8000
+WEATHER_API_KEY=b3a0ebd7825d41bdad5151322260406  # WeatherAPI key
+PORT=3000                                         # Server port
+NODE_ENV=development                              # Environment
 ```
 
-Then visit: `http://localhost:8000`
+### Deploy to Railway
 
-## 📲 Install as App
-
-### iOS/iPadOS
-1. Open in Safari
-2. Tap Share → Add to Home Screen
-3. Customize name (optional)
-4. Tap Add
-5. Launch from home screen
-6. Full-screen experience
-7. Push notifications work
-
-### Android
-1. Open in Chrome
-2. Tap menu → Install app
-3. Select screen (home/app drawer)
-4. Full PWA features
-5. Notification support
-
-### Desktop
-1. Click install button (address bar)
-2. Or right-click → Install app
-3. Native app window
-4. Offline support
-
-## 🔄 Real-Time Sync
-
-- **30-second updates** - Weather refreshes every 30 seconds
-- **Location sync** - 5-minute position updates
-- **Background updates** - Syncs when backgrounded
-- **Smart caching** - Offline data available
-- **Push notifications** - Real-time alerts
-
-## 📊 Performance
-
-| Metric | Value |
-|--------|-------|
-| Bundle Size | ~50KB |
-| Initial Load | <1s |
-| Update Speed | 30s |
-| API Calls | Minimal |
-| Battery Impact | Minimal |
-| Network Usage | Optimized |
-
-## 🛡️ Security & Privacy
-
-- **HTTPS only** - Secure data transmission
-- **No cookies** - No persistent tracking
-- **No analytics** - Zero telemetry
-- **No ads** - Ad-free experience
-- **No popups** - Clean UI
-- **No tracking pixels** - Full privacy
-- **Content Security Policy** - XSS protection
-- **Permissions minimal** - Only location needed
-
-## 🌐 Global Coverage
-
-- **Every country** - Worldwide support
-- **Every region** - Local accuracy
-- **Multi-language** - 50+ languages
-- **Time zones** - Automatic detection
-- **Units** - Celsius/Fahrenheit toggle
-
-## 📱 Mobile-First Design
-
-### Touch Optimization
-- 44px minimum touch targets
-- Swipe gestures ready
-- No hover states on mobile
-- Optimized spacing
-- Large readable text
-- High contrast colors
-
-### Network Optimization
-- Minimal data usage
-- Optimized API calls
-- Smart caching
-- Gzip compression
-- Progressive loading
-
-### Device Optimization
-- Responsive layouts
-- Safe area handling
-- Notch support
-- Dark mode support
-- Low-power mode support
-
-## 🔌 API Used
-
-- **Open-Meteo** - Free weather data (no API key)
-- **OpenStreetMap Nominatim** - Reverse geocoding
-
-## 📦 Deployment Options
-
-### Railway
 ```bash
-railway link
-railway up
-```
-
-### GitHub Pages
-```bash
+# Push to GitHub
 git push origin main
-# Enable GitHub Pages in settings
+
+# Railway auto-deploys on push
+# Set WEATHER_API_KEY in Railway dashboard
 ```
 
-### Vercel
+## 📡 API Endpoints
+
+### Get Weather
 ```bash
-vercel
+GET /api/weather?lat=40.7128&lon=-74.0060&source=weatherapi
 ```
 
-### Netlify
-```bash
-netlify deploy
+Response:
+```json
+{
+  "source": "WeatherAPI",
+  "location": {
+    "name": "New York, NY",
+    "latitude": 40.7128,
+    "longitude": -74.0060,
+    "timezone": "America/New_York",
+    "country": "United States"
+  },
+  "current": {
+    "temp": 22.5,
+    "condition": "Partly cloudy",
+    "humidity": 65,
+    "windSpeed": 12.5,
+    "uvIndex": 5,
+    "visibility": 10,
+    "pressure": 1013
+  },
+  "hourly": [...],
+  "daily": [...],
+  "insights": [
+    {
+      "type": "activity",
+      "severity": "low",
+      "title": "🏃 Perfect Weather",
+      "message": "Ideal conditions for outdoor activities!",
+      "action": "Great time for hiking, running, or outdoor sports"
+    }
+  ],
+  "alerts": [],
+  "aqi": null,
+  "fromCache": false
+}
 ```
 
-### Docker
+### Get Available Sources
 ```bash
-docker run -p 8000:8000 -v $(pwd):/app python:3 python -m http.server 8000
+GET /api/sources
 ```
+
+### Health Check
+```bash
+GET /api/health
+```
+
+### Cache Statistics
+```bash
+GET /api/cache-stats
+```
+
+## 🏗️ Architecture
+
+### Frontend
+- **app.js**: Main application logic
+- **index.html**: UI markup
+- **sw.js**: Service worker for offline support
+- **manifest.json**: PWA configuration
+
+### Backend
+- **server.js**: Express.js API server
+- **WeatherService**: Multi-API weather fetching
+- **AIInsights**: AI-powered weather analysis
+- **LocationCache**: Location name caching
+
+## 📦 Dependencies
+
+### Frontend
+- No external dependencies (vanilla JavaScript)
+
+### Backend
+- `express`: Web framework
+- `cors`: Cross-origin support
+- `compression`: Response compression
+- `node-cache`: In-memory caching
+- `node-fetch`: HTTP requests
+
+## 🔧 Configuration
+
+### Cache Settings
+```javascript
+// 10-minute TTL, check every 2 minutes
+const cache = new NodeCache({ stdTTL: 600, checkperiod: 120 });
+```
+
+### API Timeout
+```javascript
+// 8-second timeout for API requests
+{ timeout: 8000 }
+```
+
+### Temperature Units
+- Default: Celsius (°C)
+- Toggle to Fahrenheit (°F)
+- Wind speed converts automatically
+
+## 🎯 Usage
+
+1. **Click 📍** to request location
+2. **View current weather** with detailed stats
+3. **Read AI insights** for personalized recommendations
+4. **Check hourly/daily forecast** for planning
+5. **Switch API source** with 🔌 button
+6. **Toggle units** with °C/°F button
+7. **Refresh** with 🔄 button
+
+## 🐛 Troubleshooting
+
+### Location not working
+- Check browser permissions
+- Ensure HTTPS (or localhost)
+- Try refreshing the page
+
+### API errors
+- Verify WEATHER_API_KEY is set
+- Check internet connection
+- Try different API source
+
+### Slow performance
+- Clear browser cache
+- Check network tab in DevTools
+- Verify server is running
+
+## 📊 Performance Metrics
+
+- **Bundle Size**: ~12KB (gzipped)
+- **Initial Load**: ~1-2 seconds
+- **API Response**: 2-5 seconds
+- **Cache Hit**: <100ms
+
+## 🔐 Security
+
+- No sensitive data stored locally
+- API keys only on backend
+- CORS enabled for frontend
+- Input validation on all endpoints
+- Rate limiting via caching
+
+## 📝 License
+
+MIT License - Feel free to use and modify
 
 ## 🤝 Contributing
 
-Contributions welcome!
-- Report bugs
-- Suggest features
-- Improve performance
-- Add themes
-- Fix issues
+Contributions welcome! Please:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
 
-## 📄 License
+## 📞 Support
 
-MIT - Free to use, modify, distribute
+- GitHub Issues: Report bugs
+- Discussions: Ask questions
+- Email: support@miniweather.app
 
-## 💬 Support
+## 🗺️ Roadmap
 
-- Issues: [GitHub Issues](https://github.com/kayan4bit/mini-weather/issues)
-- Discussions: [GitHub Discussions](https://github.com/kayan4bit/mini-weather/discussions)
+- [ ] Geolocation search (city name input)
+- [ ] Multiple location bookmarks
+- [ ] Weather alerts/notifications
+- [ ] Air quality detailed data
+- [ ] Pollen forecast
+- [ ] Historical weather data
+- [ ] Weather maps
+- [ ] Mobile app (React Native)
 
 ---
 
-**Built with ❤️ for real-time, private, beautiful weather forecasting**
+**Made with ❤️ for weather enthusiasts**
 
-⭐ Star if you love it!

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
-    <meta name="description" content="Mini Weather - Accurate, Fast, Privacy-First Weather">
+    <meta name="description" content="Mini Weather - Fast, Accurate, AI-Powered Weather">
     <meta name="theme-color" content="#1e88e5">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -88,6 +88,7 @@
 
         button:active { transform: scale(0.95); }
         button:hover { background: var(--accent); border-color: var(--accent); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .location-section {
             background: linear-gradient(135deg, var(--bg-alt) 0%, rgba(255,255,255,0.05) 100%);
@@ -165,6 +166,12 @@
         .stat-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); margin-bottom: 6px; }
         .stat-value { font-size: 1.2rem; font-weight: 600; color: #64b5f6; }
 
+        .insights-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+        }
+
         .section-title {
             font-size: 0.95rem;
             font-weight: 600;
@@ -234,9 +241,9 @@
             animation: slideIn 0.4s ease-out;
         }
 
-        .alert-warning { background: rgba(255,152,0,0.1); border-left-color: #ff9800; color: #ffb74d; }
-        .alert-danger { background: rgba(244,67,54,0.1); border-left-color: #f44336; color: #ef5350; }
-        .alert-info { background: rgba(30,136,229,0.1); border-left-color: #1e88e5; color: #64b5f6; }
+        .alert-high { background: rgba(244,67,54,0.1); border-left-color: #f44336; color: #ef5350; }
+        .alert-medium { background: rgba(255,152,0,0.1); border-left-color: #ff9800; color: #ffb74d; }
+        .alert-low { background: rgba(30,136,229,0.1); border-left-color: #1e88e5; color: #64b5f6; }
 
         .loading {
             text-align: center;
@@ -368,7 +375,7 @@
     </div>
 
     <footer>
-        <p>Mini Weather • Privacy-First • No Tracking</p>
+        <p>Mini Weather • Fast • Accurate • AI-Powered</p>
     </footer>
 </div>
 
