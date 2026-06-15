@@ -1,5 +1,5 @@
 // Service Worker - Offline support & caching
-const CACHE_NAME = 'mini-weather-v1';
+const CACHE_NAME = 'mini-weather-v3';
 const URLS_TO_CACHE = [
     '/',
     '/index.html',
@@ -36,7 +36,8 @@ self.addEventListener('fetch', event => {
     if (event.request.method !== 'GET') return;
 
     // API requests - network first
-    if (event.request.url.includes('api.open-meteo.com') ||
+    if (event.request.url.includes('api.weatherapi.com') ||
+        event.request.url.includes('api.open-meteo.com') ||
         event.request.url.includes('api.weather.gov') ||
         event.request.url.includes('wttr.in') ||
         event.request.url.includes('nominatim.openstreetmap.org')) {
