@@ -1,9 +1,12 @@
 // Service Worker - Offline support & caching
-const CACHE_NAME = 'mini-weather-v3';
+const CACHE_NAME = 'mini-weather-v4';
 const URLS_TO_CACHE = [
     '/',
     '/index.html',
     '/app.js',
+    '/weather.js',
+    '/ai-forecast.js',
+    '/privacy.js',
     '/manifest.json'
 ];
 
