@@ -33,16 +33,33 @@ const Device = {
     isDesktop: true,
     hasTouch: false,
     isLandscape: false,
+    _resizeTimer: null,
 
     detect() {
         const w = window.innerWidth;
-        this.hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-        this.isLandscape = window.innerWidth > window.innerHeight;
+        const h = window.innerHeight;
 
-        if (w < 768 || (this.hasTouch && w < 1024)) {
-            this.type = w < 481 ? 'mobile' : 'tablet';
-            this.isMobile = w < 481;
-            this.isTablet = w >= 481 && w < 1024;
+        // Robust touch detection (fixes iPad in desktop mode)
+        this.hasTouch = (
+            ('ontouchstart' in window) ||
+            (navigator.maxTouchPoints > 0) ||
+            (navigator.msMaxTouchPoints > 0)
+        );
+        this.isLandscape = w > h;
+
+        // iPad detection: iPads in desktop mode report as desktop UA but have touch
+        const isIPad = /iPad/.test(navigator.userAgent) ||
+            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+        if (isIPad || (w >= 768 && w < 1200 && this.hasTouch)) {
+            this.type = 'tablet';
+            this.isMobile = false;
+            this.isTablet = true;
+            this.isDesktop = false;
+        } else if (w < 768) {
+            this.type = 'mobile';
+            this.isMobile = true;
+            this.isTablet = false;
             this.isDesktop = false;
         } else {
             this.type = 'desktop';
@@ -51,8 +68,9 @@ const Device = {
             this.isDesktop = true;
         }
 
-        localStorage.setItem('mini-weather-device', this.type);
+        try { localStorage.setItem('mini-weather-device', this.type); } catch { /* ignore */ }
         document.body.setAttribute('data-device', this.type);
+        document.body.setAttribute('data-landscape', this.isLandscape ? 'true' : 'false');
 
         const badge = document.getElementById('device-badge');
         if (badge) {
@@ -65,7 +83,17 @@ const Device = {
 };
 
 Device.detect();
-window.addEventListener('resize', () => Device.detect(), { passive: true });
+
+// Debounced resize handler to prevent excessive calls
+window.addEventListener('resize', () => {
+    clearTimeout(Device._resizeTimer);
+    Device._resizeTimer = setTimeout(() => Device.detect(), 150);
+}, { passive: true });
+
+// Handle orientation change explicitly
+window.addEventListener('orientationchange', () => {
+    setTimeout(() => Device.detect(), 300);
+}, { passive: true });
 
 /* ============================================================
    NOTIFICATION MANAGER
@@ -1158,14 +1186,153 @@ class WeatherApp {
             this._resizeTimer = setTimeout(() => Device.detect(), 200);
         }, { passive: true });
 
-        // Keyboard: Escape closes modals
+        // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                this.closeAPIModal();
-                this.closeSettingsModal();
-                if (typeof closePrivacyModal === 'function') closePrivacyModal();
+            // Don't fire when typing in inputs
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+            switch (e.key) {
+                case 'Escape':
+                    this.closeAPIModal();
+                    this.closeSettingsModal();
+                    if (typeof closePrivacyModal === 'function') closePrivacyModal();
+                    const sm = document.getElementById('shortcuts-modal');
+                    if (sm) sm.classList.remove('active');
+                    break;
+                case '?':
+                    e.preventDefault();
+                    const shortcutsModal = document.getElementById('shortcuts-modal');
+                    if (shortcutsModal) shortcutsModal.classList.toggle('active');
+                    break;
+                case 'r': case 'R':
+                    e.preventDefault();
+                    this.refresh();
+                    break;
+                case 'u': case 'U':
+                    e.preventDefault();
+                    this.toggleUnit();
+                    break;
+                case 'l': case 'L':
+                    e.preventDefault();
+                    this.requestLocation();
+                    break;
+                case 's': case 'S':
+                    e.preventDefault();
+                    this.showSettingsModal();
+                    break;
+                case 't': case 'T':
+                    e.preventDefault();
+                    document.getElementById('theme-dropdown').classList.toggle('active');
+                    break;
+                case 'e': case 'E':
+                    e.preventDefault();
+                    this.exportWeatherData();
+                    break;
+                case 'f': case 'F':
+                    e.preventDefault();
+                    this.addToFavorites();
+                    break;
+                case 'ArrowRight':
+                    if (document.getElementById('theme-dropdown').classList.contains('active')) {
+                        e.preventDefault();
+                        this._cycleTheme(1);
+                    }
+                    break;
+                case 'ArrowLeft':
+                    if (document.getElementById('theme-dropdown').classList.contains('active')) {
+                        e.preventDefault();
+                        this._cycleTheme(-1);
+                    }
+                    break;
             }
         });
+    }
+
+    /** Cycle through themes by offset (+1 or -1). */
+    _cycleTheme(offset) {
+        const keys = Object.keys(THEMES);
+        const idx = keys.indexOf(currentTheme);
+        const next = (idx + offset + keys.length) % keys.length;
+        applyTheme(keys[next]);
+    }
+
+    /** Add current location to favorites (max 10). */
+    addToFavorites() {
+        if (!this.currentLocation) { showToast('📍 Get your location first'); return; }
+        try {
+            const favorites = JSON.parse(localStorage.getItem('mini-weather-favorites') || '[]');
+            const exists = favorites.some(f =>
+                Math.abs(f.latitude - this.currentLocation.latitude) < 0.01 &&
+                Math.abs(f.longitude - this.currentLocation.longitude) < 0.01
+            );
+            if (exists) { showToast('⭐ Already in favorites'); return; }
+            if (favorites.length >= 10) { showToast('⚠️ Maximum 10 favorites. Remove one in Settings.'); return; }
+            favorites.push({
+                latitude: this.currentLocation.latitude,
+                longitude: this.currentLocation.longitude,
+                name: this.locationName || 'My Location',
+                addedAt: new Date().toISOString(),
+            });
+            localStorage.setItem('mini-weather-favorites', JSON.stringify(favorites));
+            this._renderFavoritesBar();
+            showToast(`⭐ Added ${this.locationName || 'location'} to favorites!`);
+        } catch { showToast('❌ Could not save favorite'); }
+    }
+
+    /** Load a favorite location by index. */
+    loadFavorite(index) {
+        try {
+            const favorites = JSON.parse(localStorage.getItem('mini-weather-favorites') || '[]');
+            const fav = favorites[index];
+            if (!fav) return;
+            this.currentLocation = { latitude: fav.latitude, longitude: fav.longitude };
+            this.locationName = fav.name || null;
+            this.cache.clear();
+            showToast(`📍 Loading ${fav.name || 'favorite'}…`);
+            this.fetchWeather();
+        } catch { showToast('❌ Could not load favorite'); }
+    }
+
+    /** Render the favorites quick-access bar. */
+    _renderFavoritesBar() {
+        const bar = document.getElementById('favorites-bar');
+        if (!bar) return;
+        let favorites = [];
+        try { favorites = JSON.parse(localStorage.getItem('mini-weather-favorites') || '[]'); } catch { favorites = []; }
+        if (!favorites.length) { bar.style.display = 'none'; return; }
+        bar.style.display = 'flex';
+        bar.innerHTML = favorites.map((fav, i) => {
+            const isActive = this.currentLocation &&
+                Math.abs(this.currentLocation.latitude - fav.latitude) < 0.01 &&
+                Math.abs(this.currentLocation.longitude - fav.longitude) < 0.01;
+            return `<button class="fav-chip${isActive ? ' active' : ''}" onclick="app.loadFavorite(${i})" aria-label="Load ${fav.name || 'favorite'}">📍 ${(fav.name || 'Location').substring(0, 20)}</button>`;
+        }).join('');
+    }
+
+    /** Export current weather data as a JSON file. */
+    exportWeatherData() {
+        if (!this.currentWeather) { showToast('📍 No weather data to export'); return; }
+        try {
+            const data = {
+                exportedAt: new Date().toISOString(),
+                location: { name: this.locationName, coordinates: this.currentLocation },
+                source: this.currentWeather.source,
+                current: this.currentWeather.current,
+                daily: this.currentWeather.daily,
+                hourly: this.currentWeather.hourly ? this.currentWeather.hourly.slice(0, 24) : [],
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `weather-${(this.locationName || 'data').replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('📤 Weather data exported!');
+        } catch { showToast('❌ Export failed'); }
     }
 
     /** Safely attach an event listener to an element by ID. */
@@ -1208,11 +1375,13 @@ class WeatherApp {
 
         try {
             const pos = await new Promise((resolve, reject) => {
-                navigator.geolocation.getCurrentPosition(resolve, reject, {
-                    enableHighAccuracy: true,
-                    timeout: 12000,
-                    maximumAge: 300000
-                });
+                // Manual timeout safety net in addition to the API timeout
+                const timer = setTimeout(() => reject({ code: 3, message: 'Geolocation timed out' }), 15000);
+                navigator.geolocation.getCurrentPosition(
+                    (p) => { clearTimeout(timer); resolve(p); },
+                    (e) => { clearTimeout(timer); reject(e); },
+                    { enableHighAccuracy: true, timeout: 12000, maximumAge: 5 * 60 * 1000 }
+                );
             });
 
             const { latitude, longitude } = pos.coords;
@@ -1243,7 +1412,7 @@ class WeatherApp {
        WEATHER FETCHING
        ---------------------------------------------------------- */
 
-    async fetchWeather() {
+    async fetchWeather(retryCount = 0) {
         if (!this.currentLocation || this.isFetching) return;
 
         const { latitude, longitude } = this.currentLocation;
@@ -1284,6 +1453,14 @@ class WeatherApp {
                         console.warn(`[WeatherApp] Fallback ${fallbackKey} failed:`, fbErr.message);
                     }
                 }
+            }
+
+            // Retry logic: if all APIs failed and we haven't retried yet, wait and try again
+            if (!weather && retryCount < 2) {
+                console.warn(`[WeatherApp] All APIs failed, retrying in ${(retryCount + 1) * 3}s...`);
+                this.isFetching = false;
+                await new Promise(r => setTimeout(r, (retryCount + 1) * 3000));
+                return this.fetchWeather(retryCount + 1);
             }
 
             if (!weather) throw new Error('All weather APIs failed. Check your connection.');
@@ -1341,6 +1518,18 @@ class WeatherApp {
         if (srcBadge)  srcBadge.textContent  = `📡 ${source}`;
         if (footerApi) footerApi.textContent = source;
         if (locDisplay) locDisplay.style.display = 'flex';
+
+        // Update AI badge
+        const aiBadge = document.getElementById('ai-badge');
+        if (aiBadge) {
+            const aiEnabled = settings.get('showAIForecast') !== false;
+            aiBadge.className = `ai-badge ${aiEnabled ? 'ai-active' : 'ai-disabled'}`;
+            aiBadge.title = aiEnabled ? 'AI Forecast Enhancement: Active' : 'AI Forecast Enhancement: Disabled';
+            aiBadge.textContent = aiEnabled ? '🤖 AI On' : '🤖 AI Off';
+        }
+
+        // Render favorites bar
+        this._renderFavoritesBar();
 
         // Sync unit button
         const unitBtn = document.getElementById('unit-btn');
