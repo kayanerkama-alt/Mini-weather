@@ -1,7 +1,17 @@
 /**
- * Mini Weather — Production-Ready Weather App
+ * Mini Weather — Production-Ready Weather App v3.0
  * APIs: WeatherAPI.com (primary), Open-Meteo, NWS, wttr.in
- * Features: Virtual Garden, 80+ Themes, Device Detection, PWA, Notifications
+ * Features: Virtual Garden, 80+ Themes, Device Detection, PWA, Notifications,
+ *           AI Forecasting, Settings, Privacy Controls, Responsive UI
+ *
+ * Architecture:
+ *   Device        — viewport / touch detection
+ *   NotificationManager — push notification wrapper
+ *   Settings      — user preferences persistence
+ *   WeatherApp    — main controller (fetch → render → interact)
+ *   Garden        — virtual plant simulation
+ *   AIForecastEngine (ai-forecast.js) — statistical ML analysis
+ *   PrivacyManager (privacy.js)       — GDPR-aware data handling
  */
 
 'use strict';
@@ -99,14 +109,152 @@ const notifications = new NotificationManager();
 /* ============================================================
    TOAST
    ============================================================ */
+/**
+ * Display a brief toast notification at the bottom of the screen.
+ * @param {string} msg
+ * @param {number} [duration=2800]
+ */
 function showToast(msg, duration = 2800) {
     const el = document.getElementById('toast');
     if (!el) return;
+    // Sanitise — only set text, never innerHTML
     el.textContent = msg;
     el.classList.add('show');
     clearTimeout(el._timer);
     el._timer = setTimeout(() => el.classList.remove('show'), duration);
 }
+
+/* ============================================================
+   SETTINGS MANAGER
+   ============================================================ */
+/**
+ * Manages all user-configurable preferences with localStorage persistence.
+ * Provides typed getters/setters and a reactive update mechanism.
+ */
+class Settings {
+    static KEY = 'mini-weather-settings';
+
+    static DEFAULTS = {
+        // Display
+        theme:          'dark',
+        fontSize:       'medium',    // small | medium | large
+        density:        'normal',    // compact | normal | comfortable
+        // Units
+        tempUnit:       'C',         // C | F
+        windUnit:       'kmh',       // kmh | mph
+        pressureUnit:   'hpa',       // hpa | inhg
+        // Notifications
+        notificationsEnabled: false,
+        alertUV:        true,
+        alertWind:      true,
+        alertRain:      true,
+        alertCold:      true,
+        alertHeat:      true,
+        // Data & Privacy
+        storageEnabled: true,
+        cacheMinutes:   10,
+        searchHistory:  [],
+        // Location
+        savedLocations: [],
+        defaultLocation: null,
+        // Advanced
+        apiSource:      'weatherapi',
+        debugMode:      false,
+        showAIForecast: true,
+        showGarden:     true,
+        showAlerts:     true,
+    };
+
+    constructor() {
+        this._data = this._load();
+        this._listeners = [];
+    }
+
+    /** Load settings from localStorage, merging with defaults. */
+    _load() {
+        try {
+            const raw = localStorage.getItem(Settings.KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                return { ...Settings.DEFAULTS, ...parsed };
+            }
+        } catch { /* corrupt data — use defaults */ }
+        return { ...Settings.DEFAULTS };
+    }
+
+    /** Persist current settings to localStorage. */
+    _save() {
+        try {
+            localStorage.setItem(Settings.KEY, JSON.stringify(this._data));
+        } catch (e) {
+            console.warn('[Settings] Could not save:', e.message);
+        }
+        this._listeners.forEach(fn => fn(this._data));
+    }
+
+    /** Get a setting value. */
+    get(key) {
+        return this._data[key] ?? Settings.DEFAULTS[key];
+    }
+
+    /** Set a setting value and persist. */
+    set(key, value) {
+        if (!(key in Settings.DEFAULTS)) {
+            console.warn(`[Settings] Unknown key: ${key}`);
+            return;
+        }
+        this._data[key] = value;
+        this._save();
+    }
+
+    /** Batch-update multiple settings. */
+    update(obj) {
+        Object.entries(obj).forEach(([k, v]) => {
+            if (k in Settings.DEFAULTS) this._data[k] = v;
+        });
+        this._save();
+    }
+
+    /** Subscribe to settings changes. Returns unsubscribe function. */
+    onChange(fn) {
+        this._listeners.push(fn);
+        return () => { this._listeners = this._listeners.filter(l => l !== fn); };
+    }
+
+    /** Add a location to search history (max 10). */
+    addSearchHistory(name, lat, lon) {
+        const history = this.get('searchHistory') || [];
+        const entry = { name, lat, lon, ts: Date.now() };
+        const filtered = history.filter(h => h.name !== name);
+        this.set('searchHistory', [entry, ...filtered].slice(0, 10));
+    }
+
+    /** Add a saved location (max 5). */
+    addSavedLocation(name, lat, lon) {
+        const locs = this.get('savedLocations') || [];
+        if (locs.find(l => l.name === name)) return;
+        this.set('savedLocations', [...locs, { name, lat, lon }].slice(0, 5));
+    }
+
+    /** Remove a saved location by name. */
+    removeSavedLocation(name) {
+        const locs = this.get('savedLocations') || [];
+        this.set('savedLocations', locs.filter(l => l.name !== name));
+    }
+
+    /** Reset all settings to defaults. */
+    reset() {
+        this._data = { ...Settings.DEFAULTS };
+        this._save();
+    }
+
+    /** Export settings as plain object. */
+    export() {
+        return { ...this._data };
+    }
+}
+
+const settings = new Settings();
 
 /* ============================================================
    THEME SYSTEM
@@ -501,42 +649,105 @@ const Garden = {
 /* ============================================================
    TEMPERATURE / UNIT CONVERSION
    ============================================================ */
-let unit = localStorage.getItem('mini-weather-unit') || 'C';
 
+/**
+ * Active temperature unit — kept in sync with settings.
+ * Legacy `unit` variable retained for backward compatibility with render helpers.
+ */
+let unit = settings.get('tempUnit') || localStorage.getItem('mini-weather-unit') || 'C';
+
+/**
+ * Convert Celsius to the current display unit.
+ * @param {number} tempC
+ * @returns {number}
+ */
 function toDisplay(tempC) {
+    if (typeof tempC !== 'number' || isNaN(tempC)) return 0;
     if (unit === 'F') return Math.round((tempC * 9 / 5) + 32);
     return Math.round(tempC);
 }
 
+/**
+ * Convert km/h wind speed to the current display unit.
+ * @param {number} kmh
+ * @returns {number}
+ */
 function windDisplay(kmh) {
-    if (unit === 'F') return (Math.round(kmh * 0.621371 * 10) / 10);
+    if (typeof kmh !== 'number' || isNaN(kmh)) return 0;
+    const wu = settings.get('windUnit') || 'kmh';
+    if (wu === 'mph') return Math.round(kmh * 0.621371 * 10) / 10;
     return Math.round(kmh * 10) / 10;
 }
 
-function windUnit() { return unit === 'F' ? 'mph' : 'km/h'; }
+/**
+ * Returns the current wind speed unit label.
+ * @returns {string}
+ */
+function windUnit() {
+    const wu = settings.get('windUnit') || 'kmh';
+    return wu === 'mph' ? 'mph' : 'km/h';
+}
+
+/**
+ * Convert hPa pressure to the current display unit.
+ * @param {number} hpa
+ * @returns {string}
+ */
+function pressureDisplay(hpa) {
+    if (typeof hpa !== 'number' || isNaN(hpa)) return '—';
+    const pu = settings.get('pressureUnit') || 'hpa';
+    if (pu === 'inhg') return (hpa * 0.02953).toFixed(2);
+    return Math.round(hpa).toString();
+}
+
+/**
+ * Returns the current pressure unit label.
+ * @returns {string}
+ */
+function pressureUnit() {
+    return settings.get('pressureUnit') === 'inhg' ? 'inHg' : 'hPa';
+}
 
 /* ============================================================
    LOCATION NAME (Nominatim)
    ============================================================ */
+
+/** In-memory cache for reverse geocoding results. */
+const _geocodeCache = new Map();
+
+/**
+ * Reverse-geocode coordinates to a human-readable location name.
+ * Results are cached in memory for the session.
+ * @param {number|string} lat
+ * @param {number|string} lon
+ * @returns {Promise<string>}
+ */
 async function getLocationName(lat, lon) {
+    const cacheKey = `${parseFloat(lat).toFixed(3)},${parseFloat(lon).toFixed(3)}`;
+    if (_geocodeCache.has(cacheKey)) return _geocodeCache.get(cacheKey);
+
     try {
         const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10`,
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=10`,
             { signal: AbortSignal.timeout(6000) }
         );
-        if (!res.ok) throw new Error('Nominatim error');
+        if (!res.ok) throw new Error(`Nominatim HTTP ${res.status}`);
         const data = await res.json();
         const a = data.address || {};
         const parts = [];
-        if (a.city) parts.push(a.city);
-        else if (a.town) parts.push(a.town);
+        if (a.city)         parts.push(a.city);
+        else if (a.town)    parts.push(a.town);
         else if (a.village) parts.push(a.village);
-        else if (a.county) parts.push(a.county);
+        else if (a.county)  parts.push(a.county);
         if (a.state && a.state !== parts[0]) parts.push(a.state);
         if (a.country) parts.push(a.country);
-        return parts.join(', ') || 'Your Location';
+        const name = parts.join(', ') || 'Your Location';
+        _geocodeCache.set(cacheKey, name);
+        return name;
     } catch {
-        return `${parseFloat(lat).toFixed(2)}°, ${parseFloat(lon).toFixed(2)}°`;
+        const fallback = `${parseFloat(lat).toFixed(2)}°, ${parseFloat(lon).toFixed(2)}°`;
+        _geocodeCache.set(cacheKey, fallback);
+        return fallback;
     }
 }
 
@@ -851,14 +1062,26 @@ function normalizeWttr(d) {
 /* ============================================================
    MAIN APP CLASS
    ============================================================ */
+/**
+ * WeatherApp — central controller.
+ * Handles location, API fetching, rendering, and all user interactions.
+ */
 class WeatherApp {
     constructor() {
+        /** @type {{latitude: number, longitude: number}|null} */
         this.currentLocation = null;
+        /** @type {object|null} Normalised weather data */
         this.currentWeather = null;
+        /** @type {string|null} Human-readable location name */
         this.locationName = null;
+        /** @type {Map<string, {data: object, time: number}>} */
         this.cache = new Map();
-        this.cacheTime = 10 * 60 * 1000; // 10 min
+        /** Prevents concurrent fetches */
         this.isFetching = false;
+        /** Debounce timer for resize events */
+        this._resizeTimer = null;
+        /** Cache TTL in ms — driven by settings */
+        this._cacheTime = (settings.get('cacheMinutes') || 10) * 60 * 1000;
 
         this.apis = {
             'weatherapi': {
@@ -887,47 +1110,101 @@ class WeatherApp {
             }
         };
 
-        this.apiSource = localStorage.getItem('mini-weather-api') || 'weatherapi';
+        // Sync apiSource from settings (with legacy localStorage fallback)
+        this.apiSource = settings.get('apiSource') || localStorage.getItem('mini-weather-api') || 'weatherapi';
         if (!this.apis[this.apiSource]) this.apiSource = 'weatherapi';
 
         this._bindEvents();
         this._restoreLocation();
+        this._applyFontSize();
+        this._applyDensity();
     }
 
-    _bindEvents() {
-        document.getElementById('location-btn').addEventListener('click', () => this.requestLocation());
-        document.getElementById('refresh-btn').addEventListener('click', () => this.refresh());
-        document.getElementById('unit-btn').addEventListener('click', () => this.toggleUnit());
-        document.getElementById('notify-btn').addEventListener('click', () => this.toggleNotifications());
-        document.getElementById('api-btn').addEventListener('click', () => this.showAPIModal());
-        document.getElementById('api-modal-close').addEventListener('click', () => this.closeAPIModal());
-        document.getElementById('api-modal').addEventListener('click', (e) => {
-            if (e.target.id === 'api-modal') this.closeAPIModal();
-        });
+    /* ----------------------------------------------------------
+       EVENT BINDING
+       ---------------------------------------------------------- */
 
-        // Update clock every minute
+    _bindEvents() {
+        // Core controls — use event delegation where possible
+        this._on('location-btn', 'click', () => this.requestLocation());
+        this._on('refresh-btn',  'click', () => this.refresh());
+        this._on('unit-btn',     'click', () => this.toggleUnit());
+        this._on('notify-btn',   'click', () => this.toggleNotifications());
+        this._on('api-btn',      'click', () => this.showAPIModal());
+        this._on('settings-btn', 'click', () => this.showSettingsModal());
+        this._on('privacy-btn',  'click', () => { if (typeof openPrivacyModal === 'function') openPrivacyModal(); });
+
+        // Modal close buttons
+        this._on('api-modal-close',      'click', () => this.closeAPIModal());
+        this._on('settings-modal-close', 'click', () => this.closeSettingsModal());
+        this._on('privacy-modal-close',  'click', () => { if (typeof closePrivacyModal === 'function') closePrivacyModal(); });
+
+        // Modal backdrop clicks
+        this._onModal('api-modal',      () => this.closeAPIModal());
+        this._onModal('settings-modal', () => this.closeSettingsModal());
+        this._onModal('privacy-modal',  () => { if (typeof closePrivacyModal === 'function') closePrivacyModal(); });
+
+        // Clock update — every minute
         setInterval(() => {
             const el = document.getElementById('loc-time');
             if (el && this.currentLocation) {
                 el.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             }
         }, 60000);
+
+        // Debounced resize handler
+        window.addEventListener('resize', () => {
+            clearTimeout(this._resizeTimer);
+            this._resizeTimer = setTimeout(() => Device.detect(), 200);
+        }, { passive: true });
+
+        // Keyboard: Escape closes modals
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.closeAPIModal();
+                this.closeSettingsModal();
+                if (typeof closePrivacyModal === 'function') closePrivacyModal();
+            }
+        });
     }
 
+    /** Safely attach an event listener to an element by ID. */
+    _on(id, event, handler) {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener(event, handler);
+    }
+
+    /** Close modal when clicking the backdrop. */
+    _onModal(id, handler) {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('click', (e) => { if (e.target === el) handler(); });
+    }
+
+    /* ----------------------------------------------------------
+       LOCATION
+       ---------------------------------------------------------- */
+
     _restoreLocation() {
-        const saved = localStorage.getItem('mini-weather-location');
-        if (saved) {
-            try {
-                this.currentLocation = JSON.parse(saved);
-                this.fetchWeather();
-            } catch { /* ignore */ }
-        }
+        try {
+            const saved = localStorage.getItem('mini-weather-location');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed && typeof parsed.latitude === 'number' && typeof parsed.longitude === 'number') {
+                    this.currentLocation = parsed;
+                    this.fetchWeather();
+                }
+            }
+        } catch { /* corrupt data — ignore */ }
     }
 
     async requestLocation() {
+        if (!navigator.geolocation) {
+            this.showError('Geolocation is not supported by your browser.');
+            return;
+        }
+
         const btn = document.getElementById('location-btn');
-        btn.disabled = true;
-        btn.textContent = '⏳';
+        if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
 
         try {
             const pos = await new Promise((resolve, reject) => {
@@ -939,22 +1216,32 @@ class WeatherApp {
             });
 
             const { latitude, longitude } = pos.coords;
+            // Validate coordinates
+            if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+                throw new Error('Invalid coordinates received from device.');
+            }
+
             this.currentLocation = { latitude, longitude };
             localStorage.setItem('mini-weather-location', JSON.stringify(this.currentLocation));
-            this.locationName = null; // Force re-fetch
+            this.locationName = null; // Force re-geocode
             await this.fetchWeather();
         } catch (err) {
             const msg = err.code === 1
                 ? 'Location access denied. Please enable location permissions in your browser.'
                 : err.code === 2
                     ? 'Location unavailable. Check your device settings.'
-                    : 'Location request timed out. Please try again.';
+                    : err.code === 3
+                        ? 'Location request timed out. Please try again.'
+                        : err.message || 'Could not get location.';
             this.showError(msg);
         } finally {
-            btn.disabled = false;
-            btn.textContent = '📍';
+            if (btn) { btn.disabled = false; btn.textContent = '📍'; }
         }
     }
+
+    /* ----------------------------------------------------------
+       WEATHER FETCHING
+       ---------------------------------------------------------- */
 
     async fetchWeather() {
         if (!this.currentLocation || this.isFetching) return;
@@ -962,10 +1249,11 @@ class WeatherApp {
         const { latitude, longitude } = this.currentLocation;
         const cacheKey = `${parseFloat(latitude).toFixed(3)}-${parseFloat(longitude).toFixed(3)}-${this.apiSource}`;
 
-        // Check cache
+        // Serve from cache if fresh
+        const cacheTime = (settings.get('cacheMinutes') || 10) * 60 * 1000;
         if (this.cache.has(cacheKey)) {
             const cached = this.cache.get(cacheKey);
-            if (Date.now() - cached.time < this.cacheTime) {
+            if (Date.now() - cached.time < cacheTime) {
                 this.currentWeather = cached.data;
                 await this._render();
                 return;
@@ -982,7 +1270,7 @@ class WeatherApp {
             try {
                 weather = await api.fetch(latitude, longitude);
             } catch (primaryErr) {
-                console.warn(`${api.name} failed:`, primaryErr.message);
+                console.warn(`[WeatherApp] ${api.name} failed:`, primaryErr.message);
 
                 // Auto-fallback chain
                 const fallbacks = ['weatherapi', 'open-meteo', 'nws', 'wttr'].filter(k => k !== this.apiSource);
@@ -993,7 +1281,7 @@ class WeatherApp {
                         showToast(`⚠️ Using ${this.apis[fallbackKey].name} as fallback`);
                         break;
                     } catch (fbErr) {
-                        console.warn(`Fallback ${fallbackKey} failed:`, fbErr.message);
+                        console.warn(`[WeatherApp] Fallback ${fallbackKey} failed:`, fbErr.message);
                     }
                 }
             }
@@ -1002,14 +1290,24 @@ class WeatherApp {
 
             this.currentWeather = weather;
             this.cache.set(cacheKey, { data: weather, time: Date.now() });
+
+            // Save to search history
+            if (this.locationName) {
+                settings.addSearchHistory(this.locationName, latitude, longitude);
+            }
+
             await this._render();
         } catch (err) {
             this.showError(err.message || 'Failed to fetch weather data.');
-            console.error('Weather fetch error:', err);
+            console.error('[WeatherApp] Fetch error:', err);
         } finally {
             this.isFetching = false;
         }
     }
+
+    /* ----------------------------------------------------------
+       RENDERING
+       ---------------------------------------------------------- */
 
     async _render() {
         if (!this.currentWeather) return;
@@ -1017,9 +1315,8 @@ class WeatherApp {
         const { current, hourly, daily, source, location } = this.currentWeather;
         const { latitude, longitude } = this.currentLocation;
 
-        // Get location name (cached)
+        // Resolve location name (cached)
         if (!this.locationName) {
-            // Use WeatherAPI location name if available
             if (location && location.name) {
                 const parts = [location.name];
                 if (location.region && location.region !== location.name) parts.push(location.region);
@@ -1032,156 +1329,225 @@ class WeatherApp {
 
         // Update location bar
         const locDisplay = document.getElementById('location-display');
-        document.getElementById('loc-name').textContent = `📍 ${this.locationName}`;
-        document.getElementById('loc-coords').textContent = `${parseFloat(latitude).toFixed(3)}°, ${parseFloat(longitude).toFixed(3)}°`;
-        document.getElementById('loc-time').textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        document.getElementById('source-badge').textContent = `📡 ${source}`;
-        document.getElementById('footer-api').textContent = source;
-        locDisplay.style.display = 'flex';
+        const locName    = document.getElementById('loc-name');
+        const locCoords  = document.getElementById('loc-coords');
+        const locTime    = document.getElementById('loc-time');
+        const srcBadge   = document.getElementById('source-badge');
+        const footerApi  = document.getElementById('footer-api');
 
-        // Update unit button
-        document.getElementById('unit-btn').textContent = `°${unit}`;
+        if (locName)   locName.textContent   = `📍 ${this.locationName}`;
+        if (locCoords) locCoords.textContent = `${parseFloat(latitude).toFixed(3)}°, ${parseFloat(longitude).toFixed(3)}°`;
+        if (locTime)   locTime.textContent   = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        if (srcBadge)  srcBadge.textContent  = `📡 ${source}`;
+        if (footerApi) footerApi.textContent = source;
+        if (locDisplay) locDisplay.style.display = 'flex';
 
-        // Build alerts
-        const alerts = this._buildAlerts(current, daily);
+        // Sync unit button
+        const unitBtn = document.getElementById('unit-btn');
+        if (unitBtn) unitBtn.textContent = `°${unit}`;
 
-        // Build weather HTML
-        const weatherHTML = this._buildWeatherCard(current, hourly, daily, source, alerts);
+        // Build alerts HTML (respects settings.showAlerts)
+        const alertsHTML = settings.get('showAlerts') ? this._buildAlerts(current, daily) : '';
 
-        // Build garden HTML
-        const gardenHTML = `<div class="garden-card" id="garden-card"></div>`;
+        // Build main weather card
+        const weatherHTML = this._buildWeatherCard(current, hourly, daily, source, alertsHTML);
 
-        // Render
-        const container = document.getElementById('weather-content');
-        container.innerHTML = weatherHTML + gardenHTML;
+        // Build garden section (respects settings.showGarden)
+        const gardenHTML = settings.get('showGarden')
+            ? `<div class="garden-card" id="garden-card" role="region" aria-label="Virtual Garden"></div>`
+            : '';
 
-        // Render garden (after DOM update)
-        Garden.render({
-            temp: current.temp,
-            humidity: current.humidity,
-            windSpeed: current.windSpeed,
-            precipitation: current.precipitation,
-            uvIndex: current.uvIndex
-        });
-
-        // Send notifications for severe conditions
-        this._sendAlertNotifications(current, daily);
-    }
-
-    _buildAlerts(current, daily) {
-        const alertItems = [];
-
-        if (current.uvIndex >= 11) {
-            alertItems.push({ type: 'danger', msg: `☀️ EXTREME UV Index ${Math.round(current.uvIndex)} — Avoid sun exposure` });
-        } else if (current.uvIndex >= 8) {
-            alertItems.push({ type: 'warning', msg: `☀️ Very High UV Index ${Math.round(current.uvIndex)} — Use SPF 50+` });
-        } else if (current.uvIndex >= 6) {
-            alertItems.push({ type: 'info', msg: `☀️ High UV Index ${Math.round(current.uvIndex)} — Wear sunscreen` });
-        }
-
-        if (current.windSpeed >= 60) {
-            alertItems.push({ type: 'danger', msg: `💨 SEVERE WINDS: ${windDisplay(current.windSpeed)} ${windUnit()} — Extreme caution` });
-        } else if (current.windSpeed >= 40) {
-            alertItems.push({ type: 'warning', msg: `💨 Strong winds: ${windDisplay(current.windSpeed)} ${windUnit()}` });
-        }
-
-        if (daily && daily[0]) {
-            if (daily[0].precipChance >= 80) {
-                alertItems.push({ type: 'warning', msg: `⛈️ Heavy rain expected — ${daily[0].precipChance}% chance` });
-            } else if (daily[0].precipChance >= 60) {
-                alertItems.push({ type: 'info', msg: `🌧️ Rain likely today — ${daily[0].precipChance}% chance` });
+        // Build AI forecast section (respects settings.showAIForecast)
+        let aiHTML = '';
+        if (settings.get('showAIForecast') && typeof AIForecastEngine !== 'undefined') {
+            try {
+                const engine = new AIForecastEngine(this.currentWeather);
+                const result = engine.analyse();
+                aiHTML = `<div class="weather-card ai-forecast-wrapper" role="region" aria-label="AI Forecast">
+                    ${renderAIForecastCard(result, unit)}
+                </div>`;
+            } catch (aiErr) {
+                console.warn('[WeatherApp] AI forecast error:', aiErr.message);
             }
         }
 
-        if (current.temp <= -10) {
-            alertItems.push({ type: 'danger', msg: `❄️ EXTREME COLD: ${toDisplay(current.temp)}°${unit} — Frostbite risk` });
-        } else if (current.temp <= 0) {
-            alertItems.push({ type: 'warning', msg: `❄️ Freezing conditions — Watch for ice` });
+        // Inject into DOM
+        const container = document.getElementById('weather-content');
+        if (container) {
+            container.innerHTML = weatherHTML + gardenHTML + aiHTML;
         }
 
-        if (current.temp >= 40) {
-            alertItems.push({ type: 'danger', msg: `🔥 EXTREME HEAT: ${toDisplay(current.temp)}°${unit} — Heat stroke risk` });
-        } else if (current.temp >= 35) {
-            alertItems.push({ type: 'warning', msg: `🌡️ Very hot: ${toDisplay(current.temp)}°${unit} — Stay hydrated` });
+        // Render garden after DOM update
+        if (settings.get('showGarden')) {
+            Garden.render({
+                temp:          current.temp,
+                humidity:      current.humidity,
+                windSpeed:     current.windSpeed,
+                precipitation: current.precipitation,
+                uvIndex:       current.uvIndex
+            });
         }
 
-        if (current.visibility < 1) {
+        // Send alert notifications
+        this._sendAlertNotifications(current, daily);
+    }
+
+    /* ----------------------------------------------------------
+       ALERTS
+       ---------------------------------------------------------- */
+
+    _buildAlerts(current, daily) {
+        const alertItems = [];
+        const s = settings;
+
+        // UV alerts
+        if (s.get('alertUV')) {
+            if (current.uvIndex >= 11) {
+                alertItems.push({ type: 'danger',  msg: `☀️ EXTREME UV Index ${Math.round(current.uvIndex)} — Avoid sun exposure` });
+            } else if (current.uvIndex >= 8) {
+                alertItems.push({ type: 'warning', msg: `☀️ Very High UV Index ${Math.round(current.uvIndex)} — Use SPF 50+` });
+            } else if (current.uvIndex >= 6) {
+                alertItems.push({ type: 'info',    msg: `☀️ High UV Index ${Math.round(current.uvIndex)} — Wear sunscreen` });
+            }
+        }
+
+        // Wind alerts
+        if (s.get('alertWind')) {
+            if (current.windSpeed >= 60) {
+                alertItems.push({ type: 'danger',  msg: `💨 SEVERE WINDS: ${windDisplay(current.windSpeed)} ${windUnit()} — Extreme caution` });
+            } else if (current.windSpeed >= 40) {
+                alertItems.push({ type: 'warning', msg: `💨 Strong winds: ${windDisplay(current.windSpeed)} ${windUnit()}` });
+            }
+        }
+
+        // Rain alerts
+        if (s.get('alertRain') && daily && daily[0]) {
+            if (daily[0].precipChance >= 80) {
+                alertItems.push({ type: 'warning', msg: `⛈️ Heavy rain expected — ${daily[0].precipChance}% chance` });
+            } else if (daily[0].precipChance >= 60) {
+                alertItems.push({ type: 'info',    msg: `🌧️ Rain likely today — ${daily[0].precipChance}% chance` });
+            }
+        }
+
+        // Cold alerts
+        if (s.get('alertCold')) {
+            if (current.temp <= -10) {
+                alertItems.push({ type: 'danger',  msg: `❄️ EXTREME COLD: ${toDisplay(current.temp)}°${unit} — Frostbite risk` });
+            } else if (current.temp <= 0) {
+                alertItems.push({ type: 'warning', msg: `❄️ Freezing conditions — Watch for ice` });
+            }
+        }
+
+        // Heat alerts
+        if (s.get('alertHeat')) {
+            if (current.temp >= 40) {
+                alertItems.push({ type: 'danger',  msg: `🔥 EXTREME HEAT: ${toDisplay(current.temp)}°${unit} — Heat stroke risk` });
+            } else if (current.temp >= 35) {
+                alertItems.push({ type: 'warning', msg: `🌡️ Very hot: ${toDisplay(current.temp)}°${unit} — Stay hydrated` });
+            }
+        }
+
+        // Visibility
+        if (typeof current.visibility === 'number' && current.visibility < 1) {
             alertItems.push({ type: 'warning', msg: `🌫️ Very low visibility: ${current.visibility.toFixed(1)} km` });
         }
 
         if (!alertItems.length) return '';
 
-        return `<div class="alerts">${alertItems.map(a =>
+        return `<div class="alerts" role="alert" aria-live="polite">${alertItems.map(a =>
             `<div class="alert alert-${a.type}">${a.msg}</div>`
         ).join('')}</div>`;
     }
 
-    _buildWeatherCard(current, hourly, daily, source, alerts) {
-        const displayTemp = toDisplay(current.temp);
-        const displayFeels = toDisplay(current.feelsLike);
-        const displayWind = windDisplay(current.windSpeed);
-        const displayGusts = windDisplay(current.windGusts);
-        const wUnit = windUnit();
-        const icon = getWeatherIcon(current.code, current.isDay !== false);
+    /* ----------------------------------------------------------
+       WEATHER CARD BUILDER
+       ---------------------------------------------------------- */
 
-        let html = `<div class="weather-card">
+    _buildWeatherCard(current, hourly, daily, source, alerts) {
+        const displayTemp  = toDisplay(current.temp);
+        const displayFeels = toDisplay(current.feelsLike);
+        const displayWind  = windDisplay(current.windSpeed);
+        const displayGusts = windDisplay(current.windGusts);
+        const wUnit        = windUnit();
+        const pUnit        = pressureUnit();
+        const pVal         = pressureDisplay(current.pressure);
+        const icon         = getWeatherIcon(current.code, current.isDay !== false);
+
+        // Sunrise / sunset from today's daily data
+        const today = daily && daily[0];
+        const sunriseStr = today?.sunrise ? this._formatSunTime(today.sunrise) : null;
+        const sunsetStr  = today?.sunset  ? this._formatSunTime(today.sunset)  : null;
+
+        // Moon phase (simple calculation)
+        const moonPhase = this._getMoonPhase();
+
+        // Humidity comfort index
+        const comfortIndex = this._humidityComfort(current.temp, current.humidity);
+
+        let html = `<div class="weather-card" role="region" aria-label="Current Weather">
             <div class="temp-display">
-                <span class="weather-icon-main">${icon}</span>
-                <div class="temp-value">${displayTemp}°${unit}</div>
+                <span class="weather-icon-main" aria-hidden="true">${icon}</span>
+                <div class="temp-value" aria-label="${displayTemp} degrees ${unit}">${displayTemp}°${unit}</div>
                 <div class="condition">${current.description}</div>
                 <div class="feels-like">Feels like ${displayFeels}°${unit}</div>
+                ${sunriseStr ? `<div class="sun-times">🌅 ${sunriseStr} &nbsp;·&nbsp; 🌇 ${sunsetStr} &nbsp;·&nbsp; ${moonPhase}</div>` : ''}
             </div>
 
-            <div class="stats">
-                <div class="stat">
+            <div class="stats" role="list">
+                <div class="stat" role="listitem">
                     <div class="stat-label">💧 Humidity</div>
                     <div class="stat-value">${current.humidity}%</div>
                     <div class="stat-unit">${getHumidityLabel(current.humidity)}</div>
                 </div>
-                <div class="stat">
+                <div class="stat" role="listitem">
                     <div class="stat-label">💨 Wind</div>
                     <div class="stat-value">${displayWind}</div>
                     <div class="stat-unit">${wUnit}</div>
                 </div>
-                <div class="stat">
+                <div class="stat" role="listitem">
                     <div class="stat-label">💨 Gusts</div>
                     <div class="stat-value">${displayGusts}</div>
                     <div class="stat-unit">${wUnit}</div>
                 </div>
-                <div class="stat">
+                <div class="stat" role="listitem">
                     <div class="stat-label">🔬 Pressure</div>
-                    <div class="stat-value">${Math.round(current.pressure)}</div>
-                    <div class="stat-unit">hPa</div>
+                    <div class="stat-value">${pVal}</div>
+                    <div class="stat-unit">${pUnit}</div>
                 </div>
-                <div class="stat">
+                <div class="stat" role="listitem">
                     <div class="stat-label">☀️ UV Index</div>
                     <div class="stat-value">${Math.round(current.uvIndex)}</div>
                     <div class="stat-unit">${getUVLabel(current.uvIndex)}</div>
                 </div>
-                <div class="stat">
+                <div class="stat" role="listitem">
                     <div class="stat-label">👁️ Visibility</div>
                     <div class="stat-value">${parseFloat(current.visibility).toFixed(1)}</div>
                     <div class="stat-unit">km</div>
                 </div>
-                <div class="stat">
+                <div class="stat" role="listitem">
                     <div class="stat-label">☁️ Cloud Cover</div>
                     <div class="stat-value">${current.cloudCover}%</div>
                     <div class="stat-unit">${current.cloudCover < 25 ? 'Clear' : current.cloudCover < 75 ? 'Partly' : 'Overcast'}</div>
                 </div>
-                <div class="stat">
+                <div class="stat" role="listitem">
                     <div class="stat-label">🌡️ Dew Point</div>
                     <div class="stat-value">${toDisplay(current.dewPoint || 0)}°</div>
                     <div class="stat-unit">${unit}</div>
                 </div>
-                <div class="stat">
+                <div class="stat" role="listitem">
                     <div class="stat-label">🌧️ Precip</div>
                     <div class="stat-value">${parseFloat(current.precipitation || 0).toFixed(1)}</div>
                     <div class="stat-unit">mm</div>
                 </div>
-                <div class="stat">
+                <div class="stat" role="listitem">
                     <div class="stat-label">🧭 Wind Dir</div>
                     <div class="stat-value">${getWindDirection(current.windDir || 0)}</div>
                     <div class="stat-unit">${current.windDir || 0}°</div>
+                </div>
+                <div class="stat" role="listitem">
+                    <div class="stat-label">🌿 Comfort</div>
+                    <div class="stat-value">${comfortIndex.score}</div>
+                    <div class="stat-unit">${comfortIndex.label}</div>
                 </div>
             </div>
         </div>`;
@@ -1191,24 +1557,21 @@ class WeatherApp {
 
         // Hourly forecast
         if (hourly && hourly.length > 0) {
-            html += `<div class="weather-card">
+            html += `<div class="weather-card" role="region" aria-label="Hourly Forecast">
                 <div class="section-title">⏰ Hourly Forecast</div>
-                <div class="hourly">`;
-
-            const now = new Date();
-            const currentHour = now.getHours();
+                <div class="hourly" role="list">`;
 
             hourly.slice(0, 24).forEach((h, idx) => {
-                const hDate = new Date(h.time);
-                const hHour = hDate.getHours();
-                const isNow = idx === 0;
+                const hDate    = new Date(h.time);
+                const hHour    = hDate.getHours();
+                const isNow    = idx === 0;
                 const timeLabel = isNow ? 'Now' : hDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                const hIcon = getWeatherIcon(h.code, hHour >= 6 && hHour < 20);
-                const hTemp = toDisplay(h.temp);
+                const hIcon    = getWeatherIcon(h.code, hHour >= 6 && hHour < 20);
+                const hTemp    = toDisplay(h.temp);
 
-                html += `<div class="hour${isNow ? '" style="border-color:var(--accent);background:var(--accent-glow)' : ''}">
+                html += `<div class="hour${isNow ? ' hour-now' : ''}" role="listitem" aria-label="${timeLabel}: ${hTemp}°, ${h.precipitation}% rain">
                     <div class="hour-time">${timeLabel}</div>
-                    <div class="hour-icon">${hIcon}</div>
+                    <div class="hour-icon" aria-hidden="true">${hIcon}</div>
                     <div class="hour-temp">${hTemp}°</div>
                     <div class="hour-precip">💧${h.precipitation}%</div>
                 </div>`;
@@ -1219,18 +1582,18 @@ class WeatherApp {
 
         // Daily forecast
         if (daily && daily.length > 0) {
-            html += `<div class="weather-card">
+            html += `<div class="weather-card" role="region" aria-label="14-Day Forecast">
                 <div class="section-title">📅 14-Day Forecast</div>
-                <div class="daily">`;
+                <div class="daily" role="list">`;
 
             daily.slice(0, 14).forEach((d, i) => {
-                const dateObj = new Date(d.date + 'T12:00:00');
+                const dateObj   = new Date(d.date + 'T12:00:00');
                 const dateLabel = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : dateObj.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
-                const dIcon = getWeatherIcon(d.code, true);
+                const dIcon     = getWeatherIcon(d.code, true);
 
-                html += `<div class="day">
+                html += `<div class="day" role="listitem" aria-label="${dateLabel}: ${toDisplay(d.maxTemp)}° high, ${toDisplay(d.minTemp)}° low">
                     <div class="day-date">${dateLabel}</div>
-                    <div class="day-icon">${dIcon}</div>
+                    <div class="day-icon" aria-hidden="true">${dIcon}</div>
                     <div class="day-condition">${(d.condition || '').substring(0, 14)}</div>
                     <div class="day-temps">
                         <span class="day-max">${toDisplay(d.maxTemp)}°</span>
@@ -1244,7 +1607,7 @@ class WeatherApp {
         }
 
         // Detailed analysis
-        html += `<div class="weather-card">
+        html += `<div class="weather-card" role="region" aria-label="Detailed Analysis">
             <div class="section-title">📊 Detailed Analysis</div>
             <div class="detailed-grid">
                 <div class="detail-card">
@@ -1264,13 +1627,13 @@ class WeatherApp {
                 </div>
                 <div class="detail-card">
                     <div class="detail-title">Atmospheric Pressure</div>
-                    <div class="detail-value">${Math.round(current.pressure)} hPa</div>
+                    <div class="detail-value">${pVal} ${pUnit}</div>
                     <div class="detail-sub">${getPressureLabel(current.pressure)}</div>
                 </div>
                 <div class="detail-card">
                     <div class="detail-title">Wind</div>
-                    <div class="detail-value">${windDisplay(current.windSpeed)} ${windUnit()}</div>
-                    <div class="detail-sub">${getWindDirection(current.windDir || 0)} · Gusts ${windDisplay(current.windGusts)} ${windUnit()}</div>
+                    <div class="detail-value">${windDisplay(current.windSpeed)} ${wUnit}</div>
+                    <div class="detail-sub">${getWindDirection(current.windDir || 0)} · Gusts ${windDisplay(current.windGusts)} ${wUnit}</div>
                 </div>
                 <div class="detail-card">
                     <div class="detail-title">Visibility</div>
@@ -1283,9 +1646,9 @@ class WeatherApp {
                     <div class="detail-sub">${current.cloudCover < 25 ? 'Clear sky' : current.cloudCover < 75 ? 'Partly cloudy' : 'Overcast'}</div>
                 </div>
                 <div class="detail-card">
-                    <div class="detail-title">Humidity</div>
-                    <div class="detail-value">${current.humidity}%</div>
-                    <div class="detail-sub">${getHumidityLabel(current.humidity)}</div>
+                    <div class="detail-title">Humidity Comfort</div>
+                    <div class="detail-value">${comfortIndex.score}/100</div>
+                    <div class="detail-sub">${comfortIndex.label} — ${comfortIndex.description}</div>
                 </div>
             </div>
         </div>`;
@@ -1293,60 +1656,110 @@ class WeatherApp {
         return html;
     }
 
+    /* ----------------------------------------------------------
+       NOTIFICATIONS
+       ---------------------------------------------------------- */
+
     _sendAlertNotifications(current, daily) {
         if (!notifications.enabled) return;
-        if (current.uvIndex >= 11) {
+        if (!settings.get('notificationsEnabled')) return;
+
+        if (settings.get('alertUV') && current.uvIndex >= 11) {
             notifications.send('⚠️ Extreme UV Alert', { body: `UV Index: ${Math.round(current.uvIndex)} — Avoid sun exposure` });
         }
-        if (current.windSpeed >= 60) {
+        if (settings.get('alertWind') && current.windSpeed >= 60) {
             notifications.send('⚠️ Severe Wind Alert', { body: `Winds: ${windDisplay(current.windSpeed)} ${windUnit()}` });
         }
-        if (daily && daily[0] && daily[0].precipChance >= 80) {
+        if (settings.get('alertRain') && daily && daily[0] && daily[0].precipChance >= 80) {
             notifications.send('🌧️ Heavy Rain Expected', { body: `${daily[0].precipChance}% chance of rain today` });
+        }
+        if (settings.get('alertCold') && current.temp <= 0) {
+            notifications.send('❄️ Freezing Conditions', { body: `Temperature: ${toDisplay(current.temp)}°${unit}` });
+        }
+        if (settings.get('alertHeat') && current.temp >= 38) {
+            notifications.send('🔥 Extreme Heat', { body: `Temperature: ${toDisplay(current.temp)}°${unit}` });
         }
     }
 
+    /* ----------------------------------------------------------
+       LOADING / ERROR STATES
+       ---------------------------------------------------------- */
+
     showLoading() {
-        document.getElementById('weather-content').innerHTML = `
-            <div class="loading">
-                <div class="spinner"></div>
+        const container = document.getElementById('weather-content');
+        if (!container) return;
+        container.innerHTML = `
+            <div class="loading" role="status" aria-live="polite">
+                <div class="loading-skeleton">
+                    <div class="skeleton skeleton-temp"></div>
+                    <div class="skeleton skeleton-row"></div>
+                    <div class="skeleton skeleton-row short"></div>
+                </div>
+                <div class="spinner" aria-hidden="true"></div>
                 <p class="loading-text">Fetching weather data…</p>
             </div>`;
     }
 
     showError(message) {
-        document.getElementById('weather-content').innerHTML = `
-            <div class="error">
-                <div class="error-title">⚠️ Unable to load weather</div>
-                <div class="error-msg">${message}</div>
-                <button class="btn-primary" onclick="app.requestLocation()">📍 Try Again</button>
-            </div>`;
+        const container = document.getElementById('weather-content');
+        if (!container) return;
+        // Use textContent for the message to prevent XSS
+        const div = document.createElement('div');
+        div.className = 'error';
+        div.setAttribute('role', 'alert');
+        div.innerHTML = `<div class="error-title">⚠️ Unable to load weather</div>`;
+        const msg = document.createElement('div');
+        msg.className = 'error-msg';
+        msg.textContent = message;
+        const btn = document.createElement('button');
+        btn.className = 'btn-primary';
+        btn.textContent = '📍 Try Again';
+        btn.addEventListener('click', () => this.requestLocation());
+        div.appendChild(msg);
+        div.appendChild(btn);
+        container.innerHTML = '';
+        container.appendChild(div);
     }
+
+    /* ----------------------------------------------------------
+       UNIT TOGGLE
+       ---------------------------------------------------------- */
 
     toggleUnit() {
         unit = unit === 'C' ? 'F' : 'C';
+        settings.set('tempUnit', unit);
         localStorage.setItem('mini-weather-unit', unit);
-        document.getElementById('unit-btn').textContent = `°${unit}`;
+        const btn = document.getElementById('unit-btn');
+        if (btn) btn.textContent = `°${unit}`;
         showToast(`Switched to °${unit}`);
         if (this.currentWeather) this._render();
     }
 
+    /* ----------------------------------------------------------
+       NOTIFICATIONS TOGGLE
+       ---------------------------------------------------------- */
+
     async toggleNotifications() {
         const granted = await notifications.requestPermission();
         if (granted) {
+            settings.set('notificationsEnabled', true);
             showToast('🔔 Notifications enabled!');
             notifications.send('Mini Weather', { body: 'Weather alerts are now active.' });
         } else {
+            settings.set('notificationsEnabled', false);
             showToast('🔕 Notifications blocked');
         }
     }
+
+    /* ----------------------------------------------------------
+       REFRESH
+       ---------------------------------------------------------- */
 
     refresh() {
         if (!this.currentLocation) {
             showToast('📍 Please get your location first');
             return;
         }
-        // Clear cache for current location
         const { latitude, longitude } = this.currentLocation;
         const cacheKey = `${parseFloat(latitude).toFixed(3)}-${parseFloat(longitude).toFixed(3)}-${this.apiSource}`;
         this.cache.delete(cacheKey);
@@ -1355,29 +1768,58 @@ class WeatherApp {
         this.fetchWeather();
     }
 
+    /* ----------------------------------------------------------
+       API MODAL
+       ---------------------------------------------------------- */
+
     showAPIModal() {
         const list = document.getElementById('api-list');
+        if (!list) return;
         list.innerHTML = '';
 
         Object.entries(this.apis).forEach(([key, api]) => {
             const div = document.createElement('div');
             div.className = 'api-option' + (key === this.apiSource ? ' selected' : '');
-            div.innerHTML = `
-                <div class="api-name">
-                    ${api.name}
-                    <span class="api-badge">${api.badge}</span>
-                    ${key === this.apiSource ? '<span class="api-badge" style="background:var(--success)">ACTIVE</span>' : ''}
-                </div>
-                <div class="api-desc">${api.desc}</div>`;
-            div.addEventListener('click', () => {
+            div.setAttribute('role', 'button');
+            div.setAttribute('tabindex', '0');
+            div.setAttribute('aria-pressed', key === this.apiSource ? 'true' : 'false');
+
+            const nameEl = document.createElement('div');
+            nameEl.className = 'api-name';
+            nameEl.textContent = api.name;
+
+            const badge = document.createElement('span');
+            badge.className = 'api-badge';
+            badge.textContent = api.badge;
+            nameEl.appendChild(badge);
+
+            if (key === this.apiSource) {
+                const activeBadge = document.createElement('span');
+                activeBadge.className = 'api-badge';
+                activeBadge.style.background = 'var(--success)';
+                activeBadge.textContent = 'ACTIVE';
+                nameEl.appendChild(activeBadge);
+            }
+
+            const descEl = document.createElement('div');
+            descEl.className = 'api-desc';
+            descEl.textContent = api.desc;
+
+            div.appendChild(nameEl);
+            div.appendChild(descEl);
+
+            const select = () => {
                 this.apiSource = key;
+                settings.set('apiSource', key);
                 localStorage.setItem('mini-weather-api', key);
                 this.closeAPIModal();
-                // Clear cache and re-fetch
                 this.cache.clear();
                 showToast(`📡 Switched to ${api.name}`);
                 if (this.currentLocation) this.fetchWeather();
-            });
+            };
+
+            div.addEventListener('click', select);
+            div.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(); } });
             list.appendChild(div);
         });
 
@@ -1385,16 +1827,392 @@ class WeatherApp {
     }
 
     closeAPIModal() {
-        document.getElementById('api-modal').classList.remove('active');
+        const modal = document.getElementById('api-modal');
+        if (modal) modal.classList.remove('active');
+    }
+
+    /* ----------------------------------------------------------
+       SETTINGS MODAL
+       ---------------------------------------------------------- */
+
+    showSettingsModal() {
+        const body = document.getElementById('settings-modal-body');
+        if (!body) return;
+
+        const s = settings;
+        const savedLocs = s.get('savedLocations') || [];
+        const searchHist = s.get('searchHistory') || [];
+
+        body.innerHTML = `
+            <div class="settings-section">
+                <div class="settings-section-title">🎨 Display</div>
+                <div class="settings-row">
+                    <label class="settings-label" for="s-font-size">Font Size</label>
+                    <select id="s-font-size" class="settings-select">
+                        <option value="small"  ${s.get('fontSize') === 'small'  ? 'selected' : ''}>Small</option>
+                        <option value="medium" ${s.get('fontSize') === 'medium' ? 'selected' : ''}>Medium</option>
+                        <option value="large"  ${s.get('fontSize') === 'large'  ? 'selected' : ''}>Large</option>
+                    </select>
+                </div>
+                <div class="settings-row">
+                    <label class="settings-label" for="s-density">Layout Density</label>
+                    <select id="s-density" class="settings-select">
+                        <option value="compact"     ${s.get('density') === 'compact'     ? 'selected' : ''}>Compact</option>
+                        <option value="normal"      ${s.get('density') === 'normal'      ? 'selected' : ''}>Normal</option>
+                        <option value="comfortable" ${s.get('density') === 'comfortable' ? 'selected' : ''}>Comfortable</option>
+                    </select>
+                </div>
+                <div class="settings-row">
+                    <label class="settings-label">Show AI Forecast</label>
+                    <label class="settings-toggle">
+                        <input type="checkbox" id="s-show-ai" ${s.get('showAIForecast') ? 'checked' : ''}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-row">
+                    <label class="settings-label">Show Virtual Garden</label>
+                    <label class="settings-toggle">
+                        <input type="checkbox" id="s-show-garden" ${s.get('showGarden') ? 'checked' : ''}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-row">
+                    <label class="settings-label">Show Weather Alerts</label>
+                    <label class="settings-toggle">
+                        <input type="checkbox" id="s-show-alerts" ${s.get('showAlerts') ? 'checked' : ''}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-section-title">📏 Units</div>
+                <div class="settings-row">
+                    <label class="settings-label" for="s-temp-unit">Temperature</label>
+                    <select id="s-temp-unit" class="settings-select">
+                        <option value="C" ${s.get('tempUnit') === 'C' ? 'selected' : ''}>Celsius (°C)</option>
+                        <option value="F" ${s.get('tempUnit') === 'F' ? 'selected' : ''}>Fahrenheit (°F)</option>
+                    </select>
+                </div>
+                <div class="settings-row">
+                    <label class="settings-label" for="s-wind-unit">Wind Speed</label>
+                    <select id="s-wind-unit" class="settings-select">
+                        <option value="kmh" ${s.get('windUnit') === 'kmh' ? 'selected' : ''}>km/h</option>
+                        <option value="mph" ${s.get('windUnit') === 'mph' ? 'selected' : ''}>mph</option>
+                    </select>
+                </div>
+                <div class="settings-row">
+                    <label class="settings-label" for="s-pressure-unit">Pressure</label>
+                    <select id="s-pressure-unit" class="settings-select">
+                        <option value="hpa"  ${s.get('pressureUnit') === 'hpa'  ? 'selected' : ''}>hPa</option>
+                        <option value="inhg" ${s.get('pressureUnit') === 'inhg' ? 'selected' : ''}>inHg</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-section-title">🔔 Notifications & Alerts</div>
+                <div class="settings-row">
+                    <label class="settings-label">Enable Notifications</label>
+                    <label class="settings-toggle">
+                        <input type="checkbox" id="s-notif" ${s.get('notificationsEnabled') ? 'checked' : ''}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-row">
+                    <label class="settings-label">UV Alerts</label>
+                    <label class="settings-toggle">
+                        <input type="checkbox" id="s-alert-uv" ${s.get('alertUV') ? 'checked' : ''}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-row">
+                    <label class="settings-label">Wind Alerts</label>
+                    <label class="settings-toggle">
+                        <input type="checkbox" id="s-alert-wind" ${s.get('alertWind') ? 'checked' : ''}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-row">
+                    <label class="settings-label">Rain Alerts</label>
+                    <label class="settings-toggle">
+                        <input type="checkbox" id="s-alert-rain" ${s.get('alertRain') ? 'checked' : ''}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-row">
+                    <label class="settings-label">Cold Alerts</label>
+                    <label class="settings-toggle">
+                        <input type="checkbox" id="s-alert-cold" ${s.get('alertCold') ? 'checked' : ''}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-row">
+                    <label class="settings-label">Heat Alerts</label>
+                    <label class="settings-toggle">
+                        <input type="checkbox" id="s-alert-heat" ${s.get('alertHeat') ? 'checked' : ''}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-section-title">📍 Location</div>
+                ${savedLocs.length > 0 ? `
+                <div class="settings-saved-locs">
+                    ${savedLocs.map(loc => `
+                        <div class="settings-loc-item">
+                            <span>📍 ${loc.name}</span>
+                            <button class="settings-loc-remove" data-name="${loc.name}" aria-label="Remove ${loc.name}">✕</button>
+                        </div>`).join('')}
+                </div>` : '<p class="settings-empty">No saved locations yet.</p>'}
+                ${this.locationName ? `
+                <button id="s-save-loc" class="settings-action-btn">💾 Save Current Location</button>` : ''}
+                ${searchHist.length > 0 ? `
+                <div class="settings-section-title" style="margin-top:12px;font-size:0.75rem;">Recent Searches</div>
+                <div class="settings-search-hist">
+                    ${searchHist.slice(0, 5).map(h => `
+                        <div class="settings-hist-item" data-lat="${h.lat}" data-lon="${h.lon}" role="button" tabindex="0">
+                            🕐 ${h.name}
+                        </div>`).join('')}
+                </div>` : ''}
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-section-title">⚙️ Advanced</div>
+                <div class="settings-row">
+                    <label class="settings-label" for="s-cache">Cache Duration</label>
+                    <select id="s-cache" class="settings-select">
+                        <option value="5"  ${s.get('cacheMinutes') === 5  ? 'selected' : ''}>5 minutes</option>
+                        <option value="10" ${s.get('cacheMinutes') === 10 ? 'selected' : ''}>10 minutes</option>
+                        <option value="30" ${s.get('cacheMinutes') === 30 ? 'selected' : ''}>30 minutes</option>
+                        <option value="60" ${s.get('cacheMinutes') === 60 ? 'selected' : ''}>1 hour</option>
+                    </select>
+                </div>
+                <div class="settings-row">
+                    <label class="settings-label">Debug Mode</label>
+                    <label class="settings-toggle">
+                        <input type="checkbox" id="s-debug" ${s.get('debugMode') ? 'checked' : ''}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-row">
+                    <button id="s-reset" class="settings-action-btn settings-danger-btn">🔄 Reset All Settings</button>
+                </div>
+            </div>`;
+
+        // Wire up settings controls
+        this._bindSettingsControls(body);
+
+        document.getElementById('settings-modal').classList.add('active');
+    }
+
+    _bindSettingsControls(body) {
+        const s = settings;
+
+        const bind = (id, key, transform = v => v) => {
+            const el = body.querySelector(`#${id}`);
+            if (!el) return;
+            const handler = () => {
+                const val = el.type === 'checkbox' ? el.checked : transform(el.value);
+                s.set(key, val);
+                if (['tempUnit','windUnit','pressureUnit'].includes(key)) {
+                    if (key === 'tempUnit') { unit = val; }
+                    if (this.currentWeather) this._render();
+                }
+                if (key === 'fontSize') this._applyFontSize();
+                if (key === 'density')  this._applyDensity();
+            };
+            el.addEventListener('change', handler);
+        };
+
+        bind('s-font-size',      'fontSize');
+        bind('s-density',        'density');
+        bind('s-show-ai',        'showAIForecast');
+        bind('s-show-garden',    'showGarden');
+        bind('s-show-alerts',    'showAlerts');
+        bind('s-temp-unit',      'tempUnit');
+        bind('s-wind-unit',      'windUnit');
+        bind('s-pressure-unit',  'pressureUnit');
+        bind('s-notif',          'notificationsEnabled');
+        bind('s-alert-uv',       'alertUV');
+        bind('s-alert-wind',     'alertWind');
+        bind('s-alert-rain',     'alertRain');
+        bind('s-alert-cold',     'alertCold');
+        bind('s-alert-heat',     'alertHeat');
+        bind('s-cache',          'cacheMinutes', v => parseInt(v, 10));
+        bind('s-debug',          'debugMode');
+
+        // Save current location
+        const saveLocBtn = body.querySelector('#s-save-loc');
+        if (saveLocBtn && this.locationName && this.currentLocation) {
+            saveLocBtn.addEventListener('click', () => {
+                s.addSavedLocation(this.locationName, this.currentLocation.latitude, this.currentLocation.longitude);
+                showToast(`💾 Saved: ${this.locationName}`);
+                this.showSettingsModal(); // Refresh
+            });
+        }
+
+        // Remove saved location buttons
+        body.querySelectorAll('.settings-loc-remove').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const name = btn.dataset.name;
+                s.removeSavedLocation(name);
+                showToast(`🗑️ Removed: ${name}`);
+                this.showSettingsModal(); // Refresh
+            });
+        });
+
+        // Search history items
+        body.querySelectorAll('.settings-hist-item').forEach(item => {
+            const go = () => {
+                const lat = parseFloat(item.dataset.lat);
+                const lon = parseFloat(item.dataset.lon);
+                if (!isNaN(lat) && !isNaN(lon)) {
+                    this.currentLocation = { latitude: lat, longitude: lon };
+                    this.locationName = null;
+                    this.closeSettingsModal();
+                    this.fetchWeather();
+                }
+            };
+            item.addEventListener('click', go);
+            item.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+        });
+
+        // Reset settings
+        const resetBtn = body.querySelector('#s-reset');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                if (confirm('Reset all settings to defaults?')) {
+                    s.reset();
+                    unit = s.get('tempUnit');
+                    showToast('🔄 Settings reset to defaults');
+                    this.closeSettingsModal();
+                    if (this.currentWeather) this._render();
+                }
+            });
+        }
+    }
+
+    closeSettingsModal() {
+        const modal = document.getElementById('settings-modal');
+        if (modal) modal.classList.remove('active');
+    }
+
+    /* ----------------------------------------------------------
+       UTILITY METHODS
+       ---------------------------------------------------------- */
+
+    /** Apply font size setting to the root element. */
+    _applyFontSize() {
+        const size = settings.get('fontSize');
+        const map = { small: '14px', medium: '16px', large: '18px' };
+        document.documentElement.style.setProperty('--base-font-size', map[size] || '16px');
+    }
+
+    /** Apply layout density setting. */
+    _applyDensity() {
+        const density = settings.get('density');
+        document.body.setAttribute('data-density', density || 'normal');
+    }
+
+    /**
+     * Format a sunrise/sunset time string to HH:MM.
+     * Handles both ISO strings and "06:30 AM" style strings.
+     * @param {string} timeStr
+     * @returns {string}
+     */
+    _formatSunTime(timeStr) {
+        if (!timeStr) return '';
+        try {
+            // ISO datetime
+            if (timeStr.includes('T')) {
+                return new Date(timeStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+            // "06:30 AM" style
+            if (timeStr.includes(':')) {
+                const d = new Date(`2000-01-01 ${timeStr}`);
+                if (!isNaN(d)) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+            return timeStr;
+        } catch {
+            return timeStr;
+        }
+    }
+
+    /**
+     * Calculate approximate moon phase for today.
+     * @returns {string} emoji + label
+     */
+    _getMoonPhase() {
+        const now = new Date();
+        // Known new moon: Jan 6, 2000
+        const knownNewMoon = new Date('2000-01-06T18:14:00Z');
+        const lunarCycle = 29.53058867; // days
+        const daysSince = (now - knownNewMoon) / (1000 * 60 * 60 * 24);
+        const phase = ((daysSince % lunarCycle) + lunarCycle) % lunarCycle;
+
+        if (phase < 1.85)  return '🌑 New Moon';
+        if (phase < 7.38)  return '🌒 Waxing Crescent';
+        if (phase < 9.22)  return '🌓 First Quarter';
+        if (phase < 14.77) return '🌔 Waxing Gibbous';
+        if (phase < 16.61) return '🌕 Full Moon';
+        if (phase < 22.15) return '🌖 Waning Gibbous';
+        if (phase < 23.99) return '🌗 Last Quarter';
+        if (phase < 29.53) return '🌘 Waning Crescent';
+        return '🌑 New Moon';
+    }
+
+    /**
+     * Calculate a humidity comfort index (0–100) based on temp + humidity.
+     * @param {number} tempC
+     * @param {number} humidity
+     * @returns {{score: number, label: string, description: string}}
+     */
+    _humidityComfort(tempC, humidity) {
+        if (typeof tempC !== 'number' || typeof humidity !== 'number') {
+            return { score: 50, label: 'Unknown', description: 'No data' };
+        }
+
+        // Heat index approximation
+        let score = 100;
+
+        // Temperature penalty
+        if (tempC < 10 || tempC > 35) score -= 30;
+        else if (tempC < 15 || tempC > 30) score -= 15;
+
+        // Humidity penalty
+        if (humidity < 20 || humidity > 80) score -= 30;
+        else if (humidity < 30 || humidity > 70) score -= 15;
+
+        // Combined heat + humidity (feels muggy)
+        if (tempC > 25 && humidity > 70) score -= 20;
+
+        score = Math.max(0, Math.min(100, score));
+
+        const label = score >= 80 ? 'Ideal' : score >= 60 ? 'Good' : score >= 40 ? 'Fair' : score >= 20 ? 'Poor' : 'Uncomfortable';
+        const description = score >= 80 ? 'Very comfortable conditions'
+            : score >= 60 ? 'Comfortable for most activities'
+            : score >= 40 ? 'Somewhat uncomfortable'
+            : score >= 20 ? 'Uncomfortable — consider staying indoors'
+            : 'Very uncomfortable conditions';
+
+        return { score, label, description };
     }
 }
 
 /* ============================================================
    INITIALIZE
    ============================================================ */
+
 // Apply saved theme
 applyTheme(currentTheme);
 initThemes();
 
 // Create app instance
 const app = new WeatherApp();
+
+// Show privacy banner if not yet acknowledged
+if (typeof privacyManager !== 'undefined') {
+    privacyManager.maybeShowBanner();
+}

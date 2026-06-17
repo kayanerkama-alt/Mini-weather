@@ -1176,6 +1176,14 @@
             font-size: 0.7rem;
         }
 
+        .footer-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .footer-link:hover { color: var(--accent-light); }
+
         /* ===== NOTIFICATION TOAST ===== */
         .toast {
             position: fixed;
@@ -1275,6 +1283,549 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        /* ===== FONT SIZE SCALING ===== */
+        :root { --base-font-size: 16px; }
+        html { font-size: var(--base-font-size); }
+
+        /* ===== DENSITY VARIANTS ===== */
+        [data-density="compact"] .weather-card { padding: 14px; }
+        [data-density="compact"] .stat { padding: 7px 5px; }
+        [data-density="compact"] .day { padding: 8px 6px; }
+        [data-density="comfortable"] .weather-card { padding: 32px; }
+        [data-density="comfortable"] .stat { padding: 14px 10px; }
+
+        /* ===== SUN TIMES ===== */
+        .sun-times {
+            font-size: 0.72rem;
+            color: var(--text-dim);
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        /* ===== HOUR NOW HIGHLIGHT ===== */
+        .hour-now {
+            border-color: var(--accent) !important;
+            background: var(--accent-glow) !important;
+        }
+
+        /* ===== LOADING SKELETON ===== */
+        .loading-skeleton {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .skeleton {
+            background: linear-gradient(90deg, var(--border) 25%, var(--border-light) 50%, var(--border) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: var(--radius-sm);
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .skeleton-temp { width: 140px; height: 64px; border-radius: 12px; }
+        .skeleton-row { width: 240px; height: 18px; }
+        .skeleton-row.short { width: 160px; }
+
+        /* ===== SETTINGS MODAL ===== */
+        .settings-section {
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .settings-section:last-child { border-bottom: none; margin-bottom: 0; }
+
+        .settings-section-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--accent-light);
+            margin-bottom: 12px;
+        }
+
+        .settings-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            gap: 12px;
+        }
+
+        .settings-label {
+            font-size: 0.82rem;
+            color: var(--text);
+            flex: 1;
+        }
+
+        .settings-select {
+            background: var(--bg-alt);
+            border: 1px solid var(--border-light);
+            color: var(--text);
+            border-radius: var(--radius-sm);
+            padding: 6px 10px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            min-width: 120px;
+        }
+
+        .settings-select:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+        /* Toggle switch */
+        .settings-toggle {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+        .settings-toggle input { opacity: 0; width: 0; height: 0; }
+
+        .toggle-slider {
+            position: absolute;
+            inset: 0;
+            background: var(--border-light);
+            border-radius: 24px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .toggle-slider::before {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            left: 3px;
+            top: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: var(--transition);
+        }
+
+        .settings-toggle input:checked + .toggle-slider { background: var(--accent); }
+        .settings-toggle input:checked + .toggle-slider::before { transform: translateX(20px); }
+        .settings-toggle input:focus + .toggle-slider { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+        .settings-action-btn {
+            width: 100%;
+            padding: 10px;
+            background: var(--bg-alt);
+            border: 1px solid var(--border-light);
+            color: var(--text);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 0.82rem;
+            transition: var(--transition);
+            text-align: center;
+        }
+
+        .settings-action-btn:hover { background: var(--accent-glow); border-color: var(--accent); }
+        .settings-danger-btn { border-color: var(--danger); color: var(--danger); }
+        .settings-danger-btn:hover { background: rgba(244,67,54,0.1); }
+
+        .settings-saved-locs { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+
+        .settings-loc-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            background: var(--bg-alt);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.8rem;
+        }
+
+        .settings-loc-remove {
+            background: none;
+            border: none;
+            color: var(--danger);
+            cursor: pointer;
+            padding: 2px 6px;
+            min-height: auto;
+            min-width: auto;
+            font-size: 0.8rem;
+        }
+
+        .settings-loc-remove:hover { background: rgba(244,67,54,0.1); border-radius: 4px; }
+
+        .settings-search-hist { display: flex; flex-direction: column; gap: 4px; }
+
+        .settings-hist-item {
+            padding: 7px 10px;
+            background: var(--bg-alt);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .settings-hist-item:hover { border-color: var(--accent); color: var(--text); }
+        .settings-empty { font-size: 0.78rem; color: var(--text-muted); font-style: italic; }
+
+        /* ===== PRIVACY MODAL ===== */
+        .privacy-policy { display: flex; flex-direction: column; gap: 0; }
+
+        .privacy-section {
+            padding: 14px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .privacy-section:last-child { border-bottom: none; }
+
+        .privacy-section h3 {
+            font-size: 0.88rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--accent-light);
+        }
+
+        .privacy-section p, .privacy-section li {
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            line-height: 1.6;
+            margin-bottom: 4px;
+        }
+
+        .privacy-section ul { padding-left: 16px; }
+        .privacy-section code { background: var(--bg-alt); padding: 1px 5px; border-radius: 3px; font-size: 0.75rem; }
+
+        .privacy-link { color: var(--accent-light); text-decoration: none; font-size: 0.75rem; }
+        .privacy-link:hover { text-decoration: underline; }
+
+        .privacy-api-card {
+            background: var(--bg-alt);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 10px 12px;
+            margin-bottom: 8px;
+        }
+
+        .privacy-api-name { font-size: 0.82rem; font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+        .privacy-api-detail { font-size: 0.72rem; color: var(--text-dim); margin-bottom: 3px; }
+        .privacy-api-detail span { color: var(--text-muted); }
+
+        .privacy-badge-optional { font-size: 0.6rem; padding: 2px 6px; border-radius: 10px; background: rgba(255,152,0,0.15); color: var(--warning); border: 1px solid rgba(255,152,0,0.3); }
+        .privacy-badge-required { font-size: 0.6rem; padding: 2px 6px; border-radius: 10px; background: rgba(30,136,229,0.15); color: var(--accent-light); border: 1px solid rgba(30,136,229,0.3); }
+        .privacy-badge-essential { font-size: 0.6rem; padding: 2px 6px; border-radius: 10px; background: rgba(76,175,80,0.15); color: var(--success); border: 1px solid rgba(76,175,80,0.3); }
+
+        .privacy-storage-list { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
+
+        .privacy-storage-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 8px;
+            background: var(--bg-alt);
+            border-radius: 4px;
+            font-size: 0.72rem;
+        }
+
+        .privacy-storage-key { flex: 1; color: var(--text); }
+        .privacy-storage-cat { padding: 1px 6px; border-radius: 8px; font-size: 0.62rem; background: var(--accent-glow); color: var(--accent-light); }
+        .privacy-storage-size { color: var(--text-muted); font-size: 0.65rem; }
+        .privacy-note { font-size: 0.72rem; color: var(--text-muted); font-style: italic; margin-top: 6px; }
+        .privacy-empty { font-size: 0.78rem; color: var(--text-muted); font-style: italic; }
+
+        .privacy-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+
+        .btn-danger {
+            background: rgba(244,67,54,0.1);
+            border: 1px solid var(--danger);
+            color: var(--danger);
+            padding: 8px 14px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 0.82rem;
+            transition: var(--transition);
+        }
+
+        .btn-danger:hover { background: rgba(244,67,54,0.2); }
+
+        /* ===== PRIVACY BANNER ===== */
+        #privacy-banner {
+            position: fixed;
+            bottom: calc(var(--safe-bottom) + 16px);
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(520px, calc(100vw - 32px));
+            background: var(--bg-card);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+            z-index: 1500;
+            box-shadow: var(--shadow);
+            animation: slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes slideUp {
+            from { transform: translateX(-50%) translateY(120%); opacity: 0; }
+            to   { transform: translateX(-50%) translateY(0);    opacity: 1; }
+        }
+
+        #privacy-banner.privacy-banner-hide {
+            animation: slideDown 0.4s ease forwards;
+        }
+
+        @keyframes slideDown {
+            to { transform: translateX(-50%) translateY(120%); opacity: 0; }
+        }
+
+        .privacy-banner-content {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .privacy-banner-icon { font-size: 1.4rem; flex-shrink: 0; }
+
+        .privacy-banner-text {
+            flex: 1;
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            line-height: 1.5;
+        }
+
+        .privacy-banner-text strong { color: var(--text); }
+
+        .privacy-banner-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .privacy-btn {
+            padding: 7px 14px;
+            border-radius: var(--radius-sm);
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: var(--transition);
+            border: 1px solid var(--accent);
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .privacy-btn-ghost {
+            padding: 7px 14px;
+            border-radius: var(--radius-sm);
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: var(--transition);
+            border: 1px solid var(--border-light);
+            background: transparent;
+            color: var(--text-dim);
+        }
+
+        .privacy-btn-ghost:hover { border-color: var(--text-dim); color: var(--text); }
+
+        /* ===== AI FORECAST CARD ===== */
+        .ai-forecast-wrapper { padding: 0; overflow: hidden; }
+
+        .ai-card {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .ai-card-empty {
+            padding: 20px;
+            text-align: center;
+        }
+
+        .ai-card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .ai-icon { font-size: 1.3rem; }
+
+        .ai-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            flex: 1;
+        }
+
+        .ai-conf-badge {
+            font-size: 0.65rem;
+            padding: 3px 10px;
+            border-radius: 20px;
+            border: 1px solid;
+            font-weight: 600;
+        }
+
+        .ai-summary {
+            font-size: 0.82rem;
+            color: var(--text-dim);
+            line-height: 1.6;
+            padding: 10px 12px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+        }
+
+        .ai-section-title {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .ai-trends { display: flex; flex-direction: column; gap: 6px; }
+
+        .ai-trend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 10px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.78rem;
+        }
+
+        .ai-trend-arrow { font-size: 1rem; font-weight: 700; width: 16px; text-align: center; }
+        .ai-trend-label { font-weight: 600; width: 80px; color: var(--text); }
+        .ai-trend-desc { flex: 1; color: var(--text-dim); }
+        .ai-trend-conf { font-size: 0.65rem; color: var(--text-muted); white-space: nowrap; }
+
+        .ai-predictions { display: flex; flex-direction: column; gap: 4px; }
+
+        .ai-pred-header {
+            display: grid;
+            grid-template-columns: 80px 90px 60px 1fr 1fr;
+            gap: 6px;
+            padding: 4px 8px;
+            font-size: 0.62rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+        }
+
+        .ai-pred-row {
+            display: grid;
+            grid-template-columns: 80px 90px 60px 1fr 1fr;
+            gap: 6px;
+            padding: 7px 8px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
+            align-items: center;
+        }
+
+        .ai-pred-day { font-weight: 600; color: var(--text); }
+        .ai-pred-temp { color: var(--accent-light); }
+        .ai-pred-precip { color: #42a5f5; }
+        .ai-pred-conf { display: flex; align-items: center; gap: 6px; }
+        .ai-pred-note { font-size: 0.65rem; color: var(--warning); }
+
+        .ai-conf-bar {
+            width: 50px;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .ai-conf-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+        .ai-conf-label { font-size: 0.65rem; color: var(--text-muted); }
+
+        .ai-anomalies { display: flex; flex-direction: column; gap: 5px; }
+
+        .ai-anomaly {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 10px;
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
+            border-left: 3px solid;
+        }
+
+        .ai-anomaly-notable { background: rgba(255,152,0,0.08); border-left-color: var(--warning); color: #ffb74d; }
+        .ai-anomaly-extreme { background: rgba(244,67,54,0.08); border-left-color: var(--danger); color: #ef5350; }
+        .ai-anomaly-icon { font-size: 1rem; }
+        .ai-anomaly-z { margin-left: auto; font-size: 0.62rem; color: var(--text-muted); }
+        .ai-no-anomaly { font-size: 0.78rem; color: var(--success); padding: 6px 0; }
+
+        .ai-patterns { display: flex; flex-wrap: wrap; gap: 6px; }
+
+        .ai-pattern-chip {
+            padding: 5px 12px;
+            background: var(--accent-glow);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            font-size: 0.72rem;
+            color: var(--accent-light);
+            cursor: default;
+        }
+
+        .ai-seasonal { display: flex; flex-direction: column; gap: 6px; }
+
+        .ai-seasonal-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 10px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
+        }
+
+        .ai-seasonal-label { color: var(--text-dim); }
+        .ai-seasonal-value { font-weight: 600; }
+
+        .ai-footer {
+            font-size: 0.62rem;
+            color: var(--text-muted);
+            text-align: center;
+            padding-top: 8px;
+            border-top: 1px solid var(--border);
+        }
+
+        .ai-empty-msg { font-size: 0.82rem; color: var(--text-muted); margin-top: 8px; }
+
+        /* ===== RESPONSIVE: AI CARD MOBILE ===== */
+        @media (max-width: 480px) {
+            .ai-pred-header,
+            .ai-pred-row { grid-template-columns: 70px 80px 50px 1fr; }
+            .ai-pred-note { display: none; }
+            .ai-trend-label { width: 60px; }
+        }
+
+        /* ===== PRIVACY CAT COLORS ===== */
+        .privacy-cat-preferences { background: rgba(30,136,229,0.15); color: var(--accent-light); }
+        .privacy-cat-location    { background: rgba(76,175,80,0.15);  color: var(--success); }
+        .privacy-cat-analytics   { background: rgba(255,152,0,0.15);  color: var(--warning); }
+        .privacy-cat-garden      { background: rgba(156,39,176,0.15); color: #ce93d8; }
+        .privacy-cat-consent     { background: rgba(244,67,54,0.15);  color: #ef9a9a; }
+        .privacy-cat-history     { background: rgba(96,125,139,0.15); color: #90a4ae; }
     </style>
 </head>
 <body>
@@ -1288,15 +1839,17 @@
         <div class="controls">
             <button id="location-btn" title="Get Location" aria-label="Get Location">📍</button>
             <button id="refresh-btn" title="Refresh" aria-label="Refresh">🔄</button>
-            <button id="unit-btn" title="Toggle °C/°F" aria-label="Toggle units">°C</button>
-            <button id="notify-btn" title="Notifications" aria-label="Enable notifications">🔔</button>
+            <button id="unit-btn" title="Toggle °C/°F" aria-label="Toggle temperature units">°C</button>
+            <button id="notify-btn" title="Notifications" aria-label="Enable weather notifications">🔔</button>
             <div class="theme-wrapper">
-                <button id="theme-btn" title="Change Theme" aria-label="Change theme">🎨</button>
-                <div id="theme-dropdown">
+                <button id="theme-btn" title="Change Theme" aria-label="Change app theme">🎨</button>
+                <div id="theme-dropdown" role="listbox" aria-label="Theme selector">
                     <div class="theme-grid" id="theme-grid"></div>
                 </div>
             </div>
-            <button id="api-btn" title="API Source" aria-label="Change API source">🔌</button>
+            <button id="api-btn" title="API Source" aria-label="Change weather data source">🔌</button>
+            <button id="settings-btn" title="Settings" aria-label="Open settings">⚙️</button>
+            <button id="privacy-btn" title="Privacy" aria-label="Privacy policy and data controls">🔒</button>
         </div>
     </header>
 
@@ -1320,24 +1873,60 @@
     </div>
 
     <footer>
-        <p>Mini Weather &bull; Privacy-First &bull; No Tracking &bull; <span id="footer-api">Open-Meteo</span></p>
+        <p>
+            Mini Weather &bull; Privacy-First &bull; No Tracking &bull;
+            <span id="footer-api">Open-Meteo</span> &bull;
+            <a href="#" id="footer-privacy-link" class="footer-link" aria-label="Open privacy policy">🔒 Privacy</a>
+        </p>
     </footer>
 </div>
 
 <!-- API Modal -->
-<div id="api-modal" class="modal" role="dialog" aria-modal="true" aria-label="Select API Source">
+<div id="api-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="api-modal-title">
     <div class="modal-content">
         <div class="modal-header">
-            <div class="modal-title">🔌 Weather Data Source</div>
-            <button class="modal-close" id="api-modal-close" aria-label="Close">✕</button>
+            <div class="modal-title" id="api-modal-title">🔌 Weather Data Source</div>
+            <button class="modal-close" id="api-modal-close" aria-label="Close API source dialog">✕</button>
         </div>
-        <div id="api-list"></div>
+        <div id="api-list" role="list"></div>
+    </div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settings-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
+    <div class="modal-content" style="max-width:480px;">
+        <div class="modal-header">
+            <div class="modal-title" id="settings-modal-title">⚙️ Settings</div>
+            <button class="modal-close" id="settings-modal-close" aria-label="Close settings">✕</button>
+        </div>
+        <div id="settings-modal-body"></div>
+    </div>
+</div>
+
+<!-- Privacy Modal -->
+<div id="privacy-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="privacy-modal-title">
+    <div class="modal-content" style="max-width:560px;">
+        <div class="modal-header">
+            <div class="modal-title" id="privacy-modal-title">🔒 Privacy & Data</div>
+            <button class="modal-close" id="privacy-modal-close" aria-label="Close privacy dialog">✕</button>
+        </div>
+        <div id="privacy-modal-body"></div>
     </div>
 </div>
 
 <!-- Toast -->
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
+<script src="ai-forecast.js"></script>
+<script src="privacy.js"></script>
 <script src="app.js"></script>
+
+<script>
+    // Footer privacy link
+    document.getElementById('footer-privacy-link').addEventListener('click', (e) => {
+        e.preventDefault();
+        if (typeof openPrivacyModal === 'function') openPrivacyModal();
+    });
+</script>
 </body>
 </html>
