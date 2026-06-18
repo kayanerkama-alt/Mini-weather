@@ -1,8 +1,9 @@
 /**
- * Mini Weather — Production-Ready Weather App v3.0
- * APIs: WeatherAPI.com (primary), Open-Meteo, NWS, wttr.in
+ * Mini Weather — Production-Ready Weather App v4.0
+ * APIs: Open-Meteo (primary), NWS, wttr.in
  * Features: Virtual Garden, 80+ Themes, Device Detection, PWA, Notifications,
- *           AI Forecasting, Settings, Privacy Controls, Responsive UI
+ *           AI Forecasting, Settings, Privacy Controls, Responsive UI,
+ *           Location Search, AI Summaries, Comprehensive Alerts
  *
  * Architecture:
  *   Device        — viewport / touch detection
@@ -186,7 +187,7 @@ class Settings {
         savedLocations: [],
         defaultLocation: null,
         // Advanced
-        apiSource:      'weatherapi',
+        apiSource:      'open-meteo',
         debugMode:      false,
         showAIForecast: true,
         showGarden:     true,
@@ -1112,17 +1113,17 @@ class WeatherApp {
         this._cacheTime = (settings.get('cacheMinutes') || 10) * 60 * 1000;
 
         this.apis = {
-            'weatherapi': {
-                name: 'WeatherAPI.com',
-                desc: 'Most accurate — 14-day forecast, hourly data',
-                badge: 'PRIMARY',
-                fetch: (lat, lon) => fetchWeatherAPI(lat, lon)
-            },
             'open-meteo': {
                 name: 'Open-Meteo',
-                desc: 'Free, no API key, global coverage',
-                badge: 'FREE',
+                desc: 'Free, no API key, global coverage — primary source',
+                badge: 'PRIMARY',
                 fetch: (lat, lon) => fetchOpenMeteo(lat, lon)
+            },
+            'weatherapi': {
+                name: 'WeatherAPI.com',
+                desc: '14-day forecast, hourly data (requires API key)',
+                badge: 'PREMIUM',
+                fetch: (lat, lon) => fetchWeatherAPI(lat, lon)
             },
             'nws': {
                 name: 'National Weather Service',
@@ -1139,8 +1140,9 @@ class WeatherApp {
         };
 
         // Sync apiSource from settings (with legacy localStorage fallback)
-        this.apiSource = settings.get('apiSource') || localStorage.getItem('mini-weather-api') || 'weatherapi';
-        if (!this.apis[this.apiSource]) this.apiSource = 'weatherapi';
+        // Default to open-meteo (free, no auth required)
+        this.apiSource = settings.get('apiSource') || localStorage.getItem('mini-weather-api') || 'open-meteo';
+        if (!this.apis[this.apiSource]) this.apiSource = 'open-meteo';
 
         this._bindEvents();
         this._restoreLocation();
@@ -1154,22 +1156,25 @@ class WeatherApp {
 
     _bindEvents() {
         // Core controls — use event delegation where possible
-        this._on('location-btn', 'click', () => this.requestLocation());
-        this._on('refresh-btn',  'click', () => this.refresh());
-        this._on('unit-btn',     'click', () => this.toggleUnit());
-        this._on('notify-btn',   'click', () => this.toggleNotifications());
-        this._on('api-btn',      'click', () => this.showAPIModal());
-        this._on('settings-btn', 'click', () => this.showSettingsModal());
-        this._on('privacy-btn',  'click', () => { if (typeof openPrivacyModal === 'function') openPrivacyModal(); });
+        this._on('location-btn',  'click', () => this.requestLocation());
+        this._on('refresh-btn',   'click', () => this.refresh());
+        this._on('unit-btn',      'click', () => this.toggleUnit());
+        this._on('notify-btn',    'click', () => this.toggleNotifications());
+        this._on('api-btn',       'click', () => this.showAPIModal());
+        this._on('settings-btn',  'click', () => this.showSettingsModal());
+        this._on('search-btn',    'click', () => this.showSearchModal());
+        this._on('privacy-btn',   'click', () => { if (typeof openPrivacyModal === 'function') openPrivacyModal(); });
 
         // Modal close buttons
         this._on('api-modal-close',      'click', () => this.closeAPIModal());
         this._on('settings-modal-close', 'click', () => this.closeSettingsModal());
+        this._on('search-modal-close',   'click', () => this.closeSearchModal());
         this._on('privacy-modal-close',  'click', () => { if (typeof closePrivacyModal === 'function') closePrivacyModal(); });
 
         // Modal backdrop clicks
         this._onModal('api-modal',      () => this.closeAPIModal());
         this._onModal('settings-modal', () => this.closeSettingsModal());
+        this._onModal('search-modal',   () => this.closeSearchModal());
         this._onModal('privacy-modal',  () => { if (typeof closePrivacyModal === 'function') closePrivacyModal(); });
 
         // Clock update — every minute
@@ -1196,6 +1201,7 @@ class WeatherApp {
                 case 'Escape':
                     this.closeAPIModal();
                     this.closeSettingsModal();
+                    this.closeSearchModal();
                     if (typeof closePrivacyModal === 'function') closePrivacyModal();
                     const sm = document.getElementById('shortcuts-modal');
                     if (sm) sm.classList.remove('active');
@@ -1409,6 +1415,88 @@ class WeatherApp {
     }
 
     /* ----------------------------------------------------------
+       LOCATION SEARCH (Nominatim geocoding)
+       ---------------------------------------------------------- */
+
+    showSearchModal() {
+        const modal = document.getElementById('search-modal');
+        if (!modal) return;
+        modal.classList.add('active');
+        const input = document.getElementById('search-input');
+        if (input) { input.value = ''; input.focus(); }
+        const results = document.getElementById('search-results');
+        if (results) results.innerHTML = '';
+    }
+
+    closeSearchModal() {
+        const modal = document.getElementById('search-modal');
+        if (modal) modal.classList.remove('active');
+    }
+
+    async searchLocation(query) {
+        if (!query || query.trim().length < 2) return;
+        const results = document.getElementById('search-results');
+        if (!results) return;
+
+        results.innerHTML = '<div class="search-loading">🔍 Searching…</div>';
+
+        try {
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query.trim())}&limit=6&addressdetails=1`;
+            const res = await fetch(url, {
+                signal: AbortSignal.timeout(8000),
+                headers: { 'Accept-Language': 'en' }
+            });
+            if (!res.ok) throw new Error(`Nominatim HTTP ${res.status}`);
+            const data = await res.json();
+
+            if (!data.length) {
+                results.innerHTML = '<div class="search-empty">No results found. Try a different search.</div>';
+                return;
+            }
+
+            results.innerHTML = data.map((place, i) => {
+                const a = place.address || {};
+                const city = a.city || a.town || a.village || a.county || place.display_name.split(',')[0];
+                const region = a.state || a.region || '';
+                const country = a.country || '';
+                const label = [city, region, country].filter(Boolean).join(', ');
+                return `<div class="search-result-item" role="button" tabindex="0"
+                    data-lat="${place.lat}" data-lon="${place.lon}" data-name="${label.replace(/"/g, '&quot;')}"
+                    onclick="app.selectSearchResult(${place.lat}, ${place.lon}, '${label.replace(/'/g, "\\'")}')">
+                    <span class="search-result-icon">📍</span>
+                    <div class="search-result-info">
+                        <div class="search-result-name">${label}</div>
+                        <div class="search-result-type">${place.type || place.class || 'location'}</div>
+                    </div>
+                </div>`;
+            }).join('');
+
+            // Keyboard navigation for results
+            results.querySelectorAll('.search-result-item').forEach(item => {
+                item.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        item.click();
+                    }
+                });
+            });
+        } catch (err) {
+            results.innerHTML = `<div class="search-empty">Search failed: ${err.message}</div>`;
+        }
+    }
+
+    selectSearchResult(lat, lon, name) {
+        this.currentLocation = { latitude: parseFloat(lat), longitude: parseFloat(lon) };
+        this.locationName = name;
+        localStorage.setItem('mini-weather-location', JSON.stringify(this.currentLocation));
+        settings.addSearchHistory(name, parseFloat(lat), parseFloat(lon));
+        this.cache.clear();
+        this.closeSearchModal();
+        showToast(`📍 Loading ${name}…`);
+        this.fetchWeather();
+    }
+
+    /* ----------------------------------------------------------
        WEATHER FETCHING
        ---------------------------------------------------------- */
 
@@ -1441,8 +1529,8 @@ class WeatherApp {
             } catch (primaryErr) {
                 console.warn(`[WeatherApp] ${api.name} failed:`, primaryErr.message);
 
-                // Auto-fallback chain
-                const fallbacks = ['weatherapi', 'open-meteo', 'nws', 'wttr'].filter(k => k !== this.apiSource);
+                // Auto-fallback chain — open-meteo first (free, no auth)
+                const fallbacks = ['open-meteo', 'wttr', 'nws', 'weatherapi'].filter(k => k !== this.apiSource);
                 for (const fallbackKey of fallbacks) {
                     try {
                         weather = await this.apis[fallbackKey].fetch(latitude, longitude);
@@ -1538,6 +1626,12 @@ class WeatherApp {
         // Build alerts HTML (respects settings.showAlerts)
         const alertsHTML = settings.get('showAlerts') ? this._buildAlerts(current, daily) : '';
 
+        // Build AI summary (prominent, above the fold)
+        let aiSummaryHTML = '';
+        if (settings.get('showAIForecast') !== false) {
+            aiSummaryHTML = this._buildAISummaryCard(current, hourly, daily);
+        }
+
         // Build main weather card
         const weatherHTML = this._buildWeatherCard(current, hourly, daily, source, alertsHTML);
 
@@ -1546,7 +1640,7 @@ class WeatherApp {
             ? `<div class="garden-card" id="garden-card" role="region" aria-label="Virtual Garden"></div>`
             : '';
 
-        // Build AI forecast section (respects settings.showAIForecast)
+        // Build full AI forecast section (respects settings.showAIForecast)
         let aiHTML = '';
         if (settings.get('showAIForecast') && typeof AIForecastEngine !== 'undefined') {
             try {
@@ -1563,7 +1657,7 @@ class WeatherApp {
         // Inject into DOM
         const container = document.getElementById('weather-content');
         if (container) {
-            container.innerHTML = weatherHTML + gardenHTML + aiHTML;
+            container.innerHTML = aiSummaryHTML + weatherHTML + gardenHTML + aiHTML;
         }
 
         // Render garden after DOM update
@@ -1579,6 +1673,106 @@ class WeatherApp {
 
         // Send alert notifications
         this._sendAlertNotifications(current, daily);
+    }
+
+    /* ----------------------------------------------------------
+       AI SUMMARY CARD (intelligent weather analysis)
+       ---------------------------------------------------------- */
+
+    _buildAISummaryCard(current, hourly, daily) {
+        const wUnit = windUnit();
+        const parts = [];
+
+        // --- Temperature analysis (next 12 hours) ---
+        const next12Temps = (hourly || []).slice(0, 12).map(h => h.temp).filter(t => t != null);
+        if (next12Temps.length >= 3) {
+            const minT = Math.min(...next12Temps);
+            const maxT = Math.max(...next12Temps);
+            const firstT = next12Temps[0];
+            const lastT = next12Temps[next12Temps.length - 1];
+            const delta = lastT - firstT;
+            if (Math.abs(delta) >= 3) {
+                parts.push(`🌡️ Temperatures will ${delta > 0 ? 'rise' : 'drop'} by ${Math.abs(Math.round(delta))}°${unit} over the next 12 hours (${toDisplay(minT)}–${toDisplay(maxT)}°${unit}).`);
+            } else {
+                parts.push(`🌡️ Temperatures stay steady around ${toDisplay(current.temp)}°${unit} for the next 12 hours.`);
+            }
+        }
+
+        // --- Precipitation analysis ---
+        const next12Precip = (hourly || []).slice(0, 12).map(h => h.precipitation || 0);
+        if (next12Precip.length > 0) {
+            const maxPrecip = Math.max(...next12Precip);
+            const avgPrecip = next12Precip.reduce((a, b) => a + b, 0) / next12Precip.length;
+            if (maxPrecip >= 70) {
+                const peakHour = next12Precip.indexOf(maxPrecip);
+                parts.push(`🌧️ High rain probability (${maxPrecip}%) expected around ${peakHour === 0 ? 'now' : `in ~${peakHour}h`}. Carry an umbrella.`);
+            } else if (avgPrecip >= 40) {
+                parts.push(`🌦️ Moderate rain chance throughout the day (avg ${Math.round(avgPrecip)}%). Showers possible.`);
+            } else if (maxPrecip < 20) {
+                parts.push(`☀️ Dry conditions expected — rain probability stays below 20% for the next 12 hours.`);
+            }
+        }
+
+        // --- Wind analysis ---
+        const next12Wind = (hourly || []).slice(0, 12).map(h => h.wind || 0);
+        if (next12Wind.length > 0) {
+            const maxWind = Math.max(...next12Wind);
+            if (maxWind >= 50) {
+                parts.push(`💨 Strong winds expected — gusts up to ${windDisplay(maxWind)} ${wUnit}. Secure loose objects outdoors.`);
+            } else if (maxWind >= 30) {
+                parts.push(`💨 Breezy conditions ahead — winds reaching ${windDisplay(maxWind)} ${wUnit}.`);
+            }
+        }
+
+        // --- UV analysis ---
+        if (current.uvIndex >= 8) {
+            parts.push(`☀️ Very high UV index (${Math.round(current.uvIndex)}) — apply SPF 50+ and limit midday sun exposure.`);
+        } else if (current.uvIndex >= 6) {
+            parts.push(`🌤️ High UV index (${Math.round(current.uvIndex)}) — sunscreen recommended.`);
+        }
+
+        // --- Pressure / storm analysis ---
+        if (current.pressure < 990) {
+            parts.push(`⛈️ Very low atmospheric pressure (${Math.round(current.pressure)} hPa) — severe weather possible.`);
+        } else if (current.pressure < 1000) {
+            parts.push(`🌧️ Low pressure system (${Math.round(current.pressure)} hPa) — unsettled weather likely.`);
+        } else if (current.pressure > 1025) {
+            parts.push(`🌤️ High pressure (${Math.round(current.pressure)} hPa) — stable, clear conditions expected.`);
+        }
+
+        // --- Comfort summary ---
+        const feelsLike = toDisplay(current.feelsLike);
+        const actualTemp = toDisplay(current.temp);
+        if (Math.abs(current.feelsLike - current.temp) >= 3) {
+            parts.push(`🌡️ Feels like ${feelsLike}°${unit} (actual ${actualTemp}°${unit}) due to ${current.windSpeed > 20 ? 'wind chill' : 'humidity'}.`);
+        }
+
+        // --- Tomorrow outlook ---
+        if (daily && daily[1]) {
+            const tmr = daily[1];
+            const tmrIcon = getWeatherIcon(tmr.code, true);
+            parts.push(`📅 Tomorrow: ${tmrIcon} ${tmr.condition || getWeatherDescription(tmr.code)} — ${toDisplay(tmr.minTemp)}–${toDisplay(tmr.maxTemp)}°${unit}, ${tmr.precipChance}% rain.`);
+        }
+
+        if (!parts.length) {
+            parts.push(`🌤️ Current conditions: ${current.description} at ${toDisplay(current.temp)}°${unit}. No significant weather events expected.`);
+        }
+
+        // Determine overall condition color
+        const hasAlert = current.uvIndex >= 8 || current.windSpeed >= 40 || current.temp >= 35 || current.temp <= 0 || current.pressure < 1000;
+        const borderColor = hasAlert ? 'var(--warning)' : 'var(--accent)';
+        const bgGlow = hasAlert ? 'rgba(255,152,0,0.06)' : 'rgba(30,136,229,0.06)';
+
+        return `<div class="weather-card ai-summary-card" role="region" aria-label="AI Weather Summary" style="border-left: 3px solid ${borderColor}; background: linear-gradient(135deg, var(--bg-card) 0%, ${bgGlow} 100%);">
+            <div class="section-title" style="margin-top:0;">🤖 AI Weather Summary</div>
+            <div class="ai-summary-content">
+                ${parts.map(p => `<div class="ai-summary-line">${p}</div>`).join('')}
+            </div>
+            <div class="ai-summary-footer">
+                <span>Powered by statistical analysis of Open-Meteo data</span>
+                <span>Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+        </div>`;
     }
 
     /* ----------------------------------------------------------
@@ -1757,12 +1951,20 @@ class WeatherApp {
                 const timeLabel = isNow ? 'Now' : hDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const hIcon    = getWeatherIcon(h.code, hHour >= 6 && hHour < 20);
                 const hTemp    = toDisplay(h.temp);
+                const hWind    = windDisplay(h.wind || 0);
+                const wUnit_   = windUnit();
+                const precipPct = h.precipitation || 0;
+                const precipBar = precipPct > 0
+                    ? `<div class="hour-precip-bar" style="width:${precipPct}%;"></div>`
+                    : '';
 
-                html += `<div class="hour${isNow ? ' hour-now' : ''}" role="listitem" aria-label="${timeLabel}: ${hTemp}°, ${h.precipitation}% rain">
+                html += `<div class="hour${isNow ? ' hour-now' : ''}" role="listitem" aria-label="${timeLabel}: ${hTemp}°, ${precipPct}% rain, ${hWind} ${wUnit_} wind">
                     <div class="hour-time">${timeLabel}</div>
                     <div class="hour-icon" aria-hidden="true">${hIcon}</div>
                     <div class="hour-temp">${hTemp}°</div>
-                    <div class="hour-precip">💧${h.precipitation}%</div>
+                    <div class="hour-precip">💧${precipPct}%</div>
+                    <div class="hour-wind">💨${hWind}</div>
+                    <div class="hour-precip-track">${precipBar}</div>
                 </div>`;
             });
 
@@ -1885,7 +2087,7 @@ class WeatherApp {
                     <div class="skeleton skeleton-row short"></div>
                 </div>
                 <div class="spinner" aria-hidden="true"></div>
-                <p class="loading-text">Fetching weather data…</p>
+                <p class="loading-text">Fetching weather data from Open-Meteo…</p>
             </div>`;
     }
 
@@ -1900,12 +2102,19 @@ class WeatherApp {
         const msg = document.createElement('div');
         msg.className = 'error-msg';
         msg.textContent = message;
+        const btnRow = document.createElement('div');
+        btnRow.style.cssText = 'display:flex;gap:8px;justify-content:center;flex-wrap:wrap;';
         const btn = document.createElement('button');
         btn.className = 'btn-primary';
-        btn.textContent = '📍 Try Again';
+        btn.textContent = '📍 Try GPS';
         btn.addEventListener('click', () => this.requestLocation());
+        const searchBtn = document.createElement('button');
+        searchBtn.textContent = '🔍 Search City';
+        searchBtn.addEventListener('click', () => this.showSearchModal());
+        btnRow.appendChild(btn);
+        btnRow.appendChild(searchBtn);
         div.appendChild(msg);
-        div.appendChild(btn);
+        div.appendChild(btnRow);
         container.innerHTML = '';
         container.appendChild(div);
     }

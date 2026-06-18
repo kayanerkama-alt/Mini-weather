@@ -1952,6 +1952,151 @@
         .privacy-cat-garden      { background: rgba(156,39,176,0.15); color: #ce93d8; }
         .privacy-cat-consent     { background: rgba(244,67,54,0.15);  color: #ef9a9a; }
         .privacy-cat-history     { background: rgba(96,125,139,0.15); color: #90a4ae; }
+
+        /* ===== AI SUMMARY CARD ===== */
+        .ai-summary-card {
+            border-left: 3px solid var(--accent);
+        }
+        .ai-summary-content {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin: 12px 0;
+        }
+        .ai-summary-line {
+            font-size: 0.84rem;
+            color: var(--text-dim);
+            line-height: 1.55;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            transition: var(--transition);
+        }
+        .ai-summary-line:hover {
+            border-color: var(--accent);
+            background: var(--accent-glow);
+            color: var(--text);
+        }
+        .ai-summary-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.62rem;
+            color: var(--text-muted);
+            padding-top: 8px;
+            border-top: 1px solid var(--border);
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        /* ===== HOURLY WIND ===== */
+        .hour-wind {
+            font-size: 0.58rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        .hour-precip-track {
+            width: 100%;
+            height: 3px;
+            background: var(--border);
+            border-radius: 2px;
+            margin-top: 4px;
+            overflow: hidden;
+        }
+        .hour-precip-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--accent-light));
+            border-radius: 2px;
+            min-width: 2px;
+            transition: width 0.5s ease;
+        }
+
+        /* ===== SEARCH MODAL ===== */
+        .search-input-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            align-items: center;
+        }
+        .search-input-field {
+            flex: 1;
+            background: var(--bg-alt);
+            border: 1px solid var(--border-light);
+            color: var(--text);
+            border-radius: var(--radius-sm);
+            padding: 10px 14px;
+            font-size: 0.9rem;
+            min-height: 44px;
+            transition: var(--transition);
+            outline: none;
+        }
+        .search-input-field:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent-glow);
+        }
+        .search-input-field::placeholder { color: var(--text-muted); }
+        .search-results-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 320px;
+            overflow-y: auto;
+        }
+        .search-result-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        .search-result-item:hover,
+        .search-result-item:focus {
+            border-color: var(--accent);
+            background: var(--accent-glow);
+            outline: none;
+        }
+        .search-result-icon { font-size: 1.2rem; flex-shrink: 0; }
+        .search-result-info { flex: 1; min-width: 0; }
+        .search-result-name {
+            font-size: 0.88rem;
+            font-weight: 500;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .search-result-type {
+            font-size: 0.68rem;
+            color: var(--text-muted);
+            text-transform: capitalize;
+            margin-top: 2px;
+        }
+        .search-loading {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-dim);
+            font-size: 0.84rem;
+        }
+        .search-empty {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-muted);
+            font-size: 0.82rem;
+        }
+
+        /* ===== IMPROVED HOUR CARD (taller for wind) ===== */
+        .hour {
+            min-width: 72px;
+        }
+        @media (max-width: 480px) {
+            .hour { min-width: 64px; }
+            .hour-wind { font-size: 0.54rem; }
+        }
     </style>
 </head>
 <body>
@@ -1963,7 +2108,8 @@
             <span>Mini Weather</span>
         </div>
         <div class="controls">
-            <button id="location-btn" title="Get Location" aria-label="Get Location">📍</button>
+            <button id="search-btn" title="Search Location (Ctrl+K)" aria-label="Search for a location">🔍</button>
+            <button id="location-btn" title="Get GPS Location" aria-label="Get GPS Location">📍</button>
             <button id="refresh-btn" title="Refresh" aria-label="Refresh">🔄</button>
             <button id="unit-btn" title="Toggle °C/°F" aria-label="Toggle temperature units">°C</button>
             <button id="notify-btn" title="Notifications" aria-label="Enable weather notifications">🔔</button>
@@ -1999,17 +2145,40 @@
     <div id="weather-content" class="main-container">
         <div class="loading">
             <div class="spinner"></div>
-            <p class="loading-text">Tap 📍 to get your weather</p>
+            <p class="loading-text">Tap 🔍 to search a city or 📍 for GPS location</p>
         </div>
     </div>
 
     <footer>
         <p>
-            Mini Weather &bull; Privacy-First &bull; No Tracking &bull;
+            Mini Weather v4 &bull; Privacy-First &bull; No Tracking &bull;
             <span id="footer-api">Open-Meteo</span> &bull;
             <a href="#" id="footer-privacy-link" class="footer-link" aria-label="Open privacy policy">🔒 Privacy</a>
         </p>
     </footer>
+</div>
+
+<!-- Search Modal -->
+<div id="search-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="search-modal-title">
+    <div class="modal-content" style="max-width:500px;">
+        <div class="modal-header">
+            <div class="modal-title" id="search-modal-title">🔍 Search Location</div>
+            <button class="modal-close" id="search-modal-close" aria-label="Close search">✕</button>
+        </div>
+        <div class="search-input-row">
+            <input
+                type="text"
+                id="search-input"
+                class="search-input-field"
+                placeholder="Search city, town, or address…"
+                aria-label="Search location"
+                autocomplete="off"
+                spellcheck="false"
+            >
+            <button class="btn-primary" id="search-go-btn" aria-label="Search">🔍</button>
+        </div>
+        <div id="search-results" class="search-results-list" role="list" aria-label="Search results"></div>
+    </div>
 </div>
 
 <!-- API Modal -->
@@ -2053,6 +2222,7 @@
             <button class="modal-close" id="shortcuts-modal-close" aria-label="Close keyboard shortcuts">✕</button>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.78rem;gap:8px;"><span style="color:var(--text-dim);">Search location</span><kbd style="display:inline-block;padding:3px 8px;background:var(--bg-alt);border:1px solid var(--border-light);border-radius:5px;font-size:0.7rem;font-family:monospace;color:var(--accent-light);">Ctrl+K</kbd></div>
             <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.78rem;gap:8px;"><span style="color:var(--text-dim);">Show this help</span><kbd style="display:inline-block;padding:3px 8px;background:var(--bg-alt);border:1px solid var(--border-light);border-radius:5px;font-size:0.7rem;font-family:monospace;color:var(--accent-light);">?</kbd></div>
             <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.78rem;gap:8px;"><span style="color:var(--text-dim);">Refresh weather</span><kbd style="display:inline-block;padding:3px 8px;background:var(--bg-alt);border:1px solid var(--border-light);border-radius:5px;font-size:0.7rem;font-family:monospace;color:var(--accent-light);">R</kbd></div>
             <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.78rem;gap:8px;"><span style="color:var(--text-dim);">Toggle °C / °F</span><kbd style="display:inline-block;padding:3px 8px;background:var(--bg-alt);border:1px solid var(--border-light);border-radius:5px;font-size:0.7rem;font-family:monospace;color:var(--accent-light);">U</kbd></div>
@@ -2092,6 +2262,43 @@
     });
     document.getElementById('shortcuts-modal').addEventListener('click', (e) => {
         if (e.target.id === 'shortcuts-modal') document.getElementById('shortcuts-modal').classList.remove('active');
+    });
+
+    // Search modal — input + button wiring
+    const searchInput = document.getElementById('search-input');
+    const searchGoBtn = document.getElementById('search-go-btn');
+
+    if (searchInput) {
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (typeof app !== 'undefined') app.searchLocation(searchInput.value);
+            }
+        });
+        // Debounced live search
+        let searchTimer;
+        searchInput.addEventListener('input', () => {
+            clearTimeout(searchTimer);
+            if (searchInput.value.trim().length >= 3) {
+                searchTimer = setTimeout(() => {
+                    if (typeof app !== 'undefined') app.searchLocation(searchInput.value);
+                }, 500);
+            }
+        });
+    }
+
+    if (searchGoBtn) {
+        searchGoBtn.addEventListener('click', () => {
+            if (typeof app !== 'undefined') app.searchLocation(searchInput.value);
+        });
+    }
+
+    // Ctrl+K / Cmd+K shortcut to open search
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            if (typeof app !== 'undefined') app.showSearchModal();
+        }
     });
 </script>
 </body>
