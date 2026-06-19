@@ -1,13 +1,4 @@
-[build]
-builder = "nixpacks"
-buildCommand = "npm install"
-
 [deploy]
-startCommand = "npx wrangler deploy"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 
-[[services]]
-name = "mini-weather"
-protocol = "http"
-port = 8000
