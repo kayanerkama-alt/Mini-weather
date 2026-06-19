@@ -1,9 +1,15 @@
 // Service Worker - Offline support & caching
-const CACHE_NAME = 'mini-weather-v3';
+const CACHE_NAME = 'mini-weather-v4';
 const URLS_TO_CACHE = [
     '/',
     '/index.html',
     '/app.js',
+    '/weather.js',
+    '/ai-forecast.js',
+    '/privacy.js',
+    '/settings.html',
+    '/settings.js',
+    '/forecast-api.js',
     '/manifest.json'
 ];
 
@@ -34,6 +40,14 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
     // Skip non-GET requests
     if (event.request.method !== 'GET') return;
+
+    // POST requests — always network, never cache
+    if (event.request.method === 'POST') {
+        event.respondWith(fetch(event.request).catch(() => new Response(
+            JSON.stringify({ error: 'Offline' }), { status: 503, headers: { 'Content-Type': 'application/json' } }
+        )));
+        return;
+    }
 
     // API requests - network first
     if (event.request.url.includes('api.weatherapi.com') ||

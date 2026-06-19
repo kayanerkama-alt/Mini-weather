@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="description" content="Mini Weather Settings — Customize your experience">
+    <meta name="theme-color" content="#1e88e5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Settings — Mini Weather</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        /* ===== RESET & BASE ===== */
+        *, *::before, *::after {
+            margin: 0; padding: 0; box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        html { -webkit-user-select: none; user-select: none; scroll-behavior: smooth; }
+        body { -webkit-user-select: text; user-select: text; }
+
+        /* ===== CSS VARIABLES ===== */
+        :root {
+            --safe-top: max(12px, env(safe-area-inset-top));
+            --safe-bottom: max(12px, env(safe-area-inset-bottom));
+            --safe-left: max(8px, env(safe-area-inset-left));
+            --safe-right: max(8px, env(safe-area-inset-right));
+            --bg: #0a0a0a; --bg-alt: #141414; --bg-card: #1a1a1a;
+            --text: #f0f0f0; --text-dim: #888888; --text-muted: #555555;
+            --accent: #1e88e5; --accent-light: #64b5f6; --accent-glow: rgba(30,136,229,0.25);
+            --border: #2a2a2a; --border-light: #333333;
+            --success: #4caf50; --warning: #ff9800; --danger: #f44336;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --radius: 12px; --radius-sm: 8px;
+            --shadow: 0 4px 24px rgba(0,0,0,0.4);
+        }
+
+        /* ===== THEME OVERRIDES (inherit from main app) ===== */
+        [data-theme="light"] {
+            --bg: #f5f7fa; --bg-alt: #ffffff; --bg-card: #ffffff;
+            --text: #1a1a2e; --text-dim: #666666; --text-muted: #999999;
+            --accent: #1565c0; --accent-light: #1e88e5; --accent-glow: rgba(21,101,192,0.15);
+            --border: #e0e0e0; --border-light: #eeeeee; --shadow: 0 4px 24px rgba(0,0,0,0.1);
+        }
+        [data-theme="ocean"] { --bg:#0d1b2a;--bg-alt:#1b2838;--bg-card:#1e3a5f;--text:#e0f4ff;--text-dim:#7fb3d3;--text-muted:#4a7fa5;--accent:#00b4d8;--accent-light:#90e0ef;--accent-glow:rgba(0,180,216,0.25);--border:#1e3a5f;--border-light:#2a4f7a; }
+        [data-theme="forest"] { --bg:#0a1a0a;--bg-alt:#0f2a0f;--bg-card:#143a14;--text:#d4f0d4;--text-dim:#6aaa6a;--text-muted:#3a7a3a;--accent:#4caf50;--accent-light:#a5d6a7;--accent-glow:rgba(76,175,80,0.25);--border:#1a3a1a;--border-light:#2a5a2a; }
+        [data-theme="sunset"] { --bg:#1a0a00;--bg-alt:#2d1200;--bg-card:#3d1a00;--text:#ffe8cc;--text-dim:#cc8844;--text-muted:#885522;--accent:#ff6b35;--accent-light:#ffaa80;--accent-glow:rgba(255,107,53,0.25);--border:#4a2200;--border-light:#663300; }
+        [data-theme="lavender"] { --bg:#1a1025;--bg-alt:#251535;--bg-card:#2e1a45;--text:#ede0ff;--text-dim:#b090d0;--text-muted:#7a5a9a;--accent:#9c27b0;--accent-light:#ce93d8;--accent-glow:rgba(156,39,176,0.25);--border:#3a2055;--border-light:#4a2a6a; }
+        [data-theme="nord"] { --bg:#2e3440;--bg-alt:#3b4252;--bg-card:#434c5e;--text:#eceff4;--text-dim:#d8dee9;--text-muted:#4c566a;--accent:#88c0d0;--accent-light:#8fbcbb;--accent-glow:rgba(136,192,208,0.25);--border:#4c566a;--border-light:#5e6779; }
+        [data-theme="dracula"] { --bg:#282a36;--bg-alt:#1e1f29;--bg-card:#313341;--text:#f8f8f2;--text-dim:#6272a4;--text-muted:#44475a;--accent:#bd93f9;--accent-light:#ff79c6;--accent-glow:rgba(189,147,249,0.25);--border:#44475a;--border-light:#6272a4; }
+        [data-theme="cyberpunk"] { --bg:#0a0015;--bg-alt:#100020;--bg-card:#1a0030;--text:#00ffff;--text-dim:#ff00ff;--text-muted:#8800aa;--accent:#ff0080;--accent-light:#ff80c0;--accent-glow:rgba(255,0,128,0.35);--border:#2a0050;--border-light:#4400aa; }
+        [data-theme="neon"] { --bg:#050510;--bg-alt:#0a0a20;--bg-card:#0f0f30;--text:#ffffff;--text-dim:#00ff88;--text-muted:#007744;--accent:#00ff88;--accent-light:#88ffcc;--accent-glow:rgba(0,255,136,0.35);--border:#001a10;--border-light:#003320; }
+        [data-theme="pastel"] { --bg:#fef9ff;--bg-alt:#f8f0ff;--bg-card:#ffffff;--text:#4a3060;--text-dim:#9080a0;--text-muted:#c0b0d0;--accent:#c084fc;--accent-light:#e9d5ff;--accent-glow:rgba(192,132,252,0.2);--border:#e8d8f8;--border-light:#f0e8ff; }
+        [data-theme="ice"] { --bg:#f0f8ff;--bg-alt:#e8f4ff;--bg-card:#ffffff;--text:#1a2a3a;--text-dim:#5080a0;--text-muted:#90b8d0;--accent:#0288d1;--accent-light:#4fc3f7;--accent-glow:rgba(2,136,209,0.2);--border:#c8e4f8;--border-light:#daeeff; }
+
+        /* ===== BODY ===== */
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            min-height: 100vh;
+            transition: background 0.4s ease, color 0.4s ease;
+        }
+
+        @supports (padding: max(0px)) {
+            body { padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left); }
+        }
+
+        /* ===== APP LAYOUT ===== */
+        #settings-app {
+            min-height: 100vh;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* ===== HEADER ===== */
+        .settings-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            border: 1px solid var(--border-light);
+            background: var(--bg-card);
+            color: var(--text);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 1.1rem;
+            text-decoration: none;
+            transition: var(--transition);
+            flex-shrink: 0;
+        }
+        .back-btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .back-btn:active { transform: scale(0.94); }
+
+        .settings-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .settings-subtitle {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-top: 2px;
+        }
+
+        /* ===== TABS ===== */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            background: var(--bg-alt);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 4px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        .tabs::-webkit-scrollbar { display: none; }
+
+        .tab-btn {
+            flex: 1;
+            min-width: 80px;
+            padding: 10px 12px;
+            border: none;
+            background: transparent;
+            color: var(--text-dim);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: var(--transition);
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            min-height: 44px;
+        }
+        .tab-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+        .tab-btn.active {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 2px 8px var(--accent-glow);
+        }
+
+        /* ===== TAB PANELS ===== */
+        .tab-panel { display: none; animation: fadeIn 0.25s ease; }
+        .tab-panel.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ===== SETTINGS SECTIONS ===== */
+        .settings-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+
+        .section-header {
+            padding: 14px 16px 10px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--accent-light);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* ===== SETTING ROWS ===== */
+        .setting-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            gap: 12px;
+            min-height: 60px;
+            transition: background 0.2s;
+        }
+        .setting-row:last-child { border-bottom: none; }
+        .setting-row:hover { background: rgba(255,255,255,0.02); }
+
+        .setting-info { flex: 1; min-width: 0; }
+        .setting-label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text);
+            margin-bottom: 2px;
+        }
+        .setting-desc {
+            font-size: 0.72rem;
+            color: var(--text-dim);
+            line-height: 1.4;
+        }
+
+        /* ===== TOGGLE SWITCH ===== */
+        .toggle {
+            position: relative;
+            width: 52px;
+            height: 28px;
+            flex-shrink: 0;
+        }
+        .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+        .toggle-slider {
+            position: absolute;
+            inset: 0;
+            background: var(--border-light);
+            border-radius: 28px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .toggle-slider::before {
+            content: '';
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            left: 3px;
+            top: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .toggle input:checked + .toggle-slider { background: var(--accent); }
+        .toggle input:checked + .toggle-slider::before { transform: translateX(24px); }
+        .toggle input:focus-visible + .toggle-slider { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+        /* ===== SELECT ===== */
+        .setting-select {
+            background: var(--bg-alt);
+            border: 1px solid var(--border-light);
+            color: var(--text);
+            border-radius: var(--radius-sm);
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            min-width: 120px;
+            min-height: 44px;
+            transition: var(--transition);
+            -webkit-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            padding-right: 32px;
+        }
+        .setting-select:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+        .setting-select:hover { border-color: var(--accent); }
+
+        /* ===== BUTTON GROUP ===== */
+        .btn-group {
+            display: flex;
+            gap: 4px;
+            background: var(--bg-alt);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 3px;
+        }
+        .btn-group-item {
+            padding: 7px 14px;
+            border: none;
+            background: transparent;
+            color: var(--text-dim);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 500;
+            transition: var(--transition);
+            min-height: 36px;
+            white-space: nowrap;
+        }
+        .btn-group-item:hover { color: var(--text); }
+        .btn-group-item.active { background: var(--accent); color: #fff; }
+
+        /* ===== ACTION BUTTONS ===== */
+        .action-btn {
+            padding: 10px 18px;
+            border: 1px solid var(--border-light);
+            background: var(--bg-alt);
+            color: var(--text);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 500;
+            transition: var(--transition);
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        .action-btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .action-btn:active { transform: scale(0.96); }
+        .action-btn.danger { border-color: rgba(244,67,54,0.4); color: #ef5350; }
+        .action-btn.danger:hover { background: rgba(244,67,54,0.15); border-color: #ef5350; color: #ef5350; }
+        .action-btn.success { border-color: rgba(76,175,80,0.4); color: #81c784; }
+        .action-btn.success:hover { background: rgba(76,175,80,0.15); border-color: #81c784; color: #81c784; }
+
+        /* ===== THEME GRID ===== */
+        .theme-grid-settings {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+            gap: 8px;
+            padding: 16px;
+        }
+
+        .theme-swatch-settings {
+            aspect-ratio: 1;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+        .theme-swatch-settings:hover { transform: scale(1.1); border-color: var(--text); }
+        .theme-swatch-settings.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+
+        .theme-swatch-settings .swatch-label {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.7);
+            color: #fff;
+            font-size: 0.5rem;
+            text-align: center;
+            padding: 2px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .theme-swatch-settings:hover .swatch-label { opacity: 1; }
+
+        /* ===== FONT SIZE PREVIEW ===== */
+        .font-preview {
+            padding: 12px 16px;
+            background: var(--bg-alt);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            font-size: 0.82rem;
+            line-height: 1.5;
+            margin-top: 8px;
+        }
+
+        /* ===== PRIVACY INFO BOX ===== */
+        .info-box {
+            margin: 0 16px 16px;
+            padding: 12px 14px;
+            background: rgba(30,136,229,0.08);
+            border: 1px solid rgba(30,136,229,0.2);
+            border-radius: var(--radius-sm);
+            font-size: 0.78rem;
+            color: var(--accent-light);
+            line-height: 1.5;
+        }
+        .info-box.warning {
+            background: rgba(255,152,0,0.08);
+            border-color: rgba(255,152,0,0.2);
+            color: #ffb74d;
+        }
+        .info-box.success {
+            background: rgba(76,175,80,0.08);
+            border-color: rgba(76,175,80,0.2);
+            color: #81c784;
+        }
+
+        /* ===== DATA RETENTION TABLE ===== */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.78rem;
+            margin: 0 0 16px;
+        }
+        .data-table th {
+            text-align: left;
+            padding: 8px 16px;
+            color: var(--text-dim);
+            font-weight: 600;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border);
+        }
+        .data-table td {
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text);
+            vertical-align: top;
+        }
+        .data-table tr:last-child td { border-bottom: none; }
+        .data-table .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.65rem;
+            font-weight: 600;
+        }
+        .badge-local { background: rgba(76,175,80,0.15); color: #81c784; border: 1px solid rgba(76,175,80,0.3); }
+        .badge-none { background: rgba(30,136,229,0.15); color: var(--accent-light); border: 1px solid rgba(30,136,229,0.3); }
+        .badge-memory { background: rgba(255,152,0,0.15); color: #ffb74d; border: 1px solid rgba(255,152,0,0.3); }
+
+        /* ===== GARDEN ACTIONS ===== */
+        .garden-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 16px;
+        }
+
+        .garden-stats-preview {
+            padding: 0 16px 16px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        .garden-stat-card {
+            background: var(--bg-alt);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            text-align: center;
+        }
+        .garden-stat-card .stat-val {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: var(--success);
+        }
+        .garden-stat-card .stat-lbl {
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+        }
+
+        /* ===== LOCATION INPUT ===== */
+        .location-input-row {
+            display: flex;
+            gap: 8px;
+            padding: 12px 16px;
+            align-items: center;
+        }
+        .location-input {
+            flex: 1;
+            background: var(--bg-alt);
+            border: 1px solid var(--border-light);
+            color: var(--text);
+            border-radius: var(--radius-sm);
+            padding: 10px 14px;
+            font-size: 0.85rem;
+            min-height: 44px;
+            transition: var(--transition);
+        }
+        .location-input:focus {
+            outline: 2px solid var(--accent);
+            border-color: var(--accent);
+        }
+        .location-input::placeholder { color: var(--text-muted); }
+
+        /* ===== SAVE BANNER ===== */
+        .save-banner {
+            position: fixed;
+            bottom: calc(var(--safe-bottom) + 16px);
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--success);
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 24px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            z-index: 2000;
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 4px 20px rgba(76,175,80,0.4);
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .save-banner.show { transform: translateX(-50%) translateY(0); }
+
+        /* ===== TOAST ===== */
+        .toast {
+            position: fixed;
+            bottom: calc(var(--safe-bottom) + 16px);
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--bg-card);
+            border: 1px solid var(--border-light);
+            color: var(--text);
+            padding: 10px 20px;
+            border-radius: 24px;
+            font-size: 0.82rem;
+            z-index: 2000;
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: var(--shadow);
+            white-space: nowrap;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+
+        /* ===== CONFIRM DIALOG ===== */
+        .confirm-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            z-index: 3000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            backdrop-filter: blur(4px);
+        }
+        .confirm-overlay.active { display: flex; }
+        .confirm-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius);
+            padding: 24px;
+            max-width: 360px;
+            width: 100%;
+            animation: fadeIn 0.2s ease;
+            box-shadow: var(--shadow);
+        }
+        .confirm-title { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
+        .confirm-msg { font-size: 0.82rem; color: var(--text-dim); margin-bottom: 20px; line-height: 1.5; }
+        .confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 480px) {
+            #settings-app { padding: 10px; gap: 12px; }
+            .settings-title { font-size: 1rem; }
+            .tab-btn { font-size: 0.72rem; padding: 8px 8px; min-width: 64px; }
+            .theme-grid-settings { grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; }
+            .garden-stats-preview { grid-template-columns: repeat(3, 1fr); }
+            .setting-row { padding: 12px 14px; }
+            .setting-label { font-size: 0.85rem; }
+        }
+
+        @media (min-width: 768px) {
+            #settings-app { padding: 24px; }
+            .theme-grid-settings { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); }
+        }
+
+        @media (min-width: 1024px) {
+            #settings-app { padding: 32px; }
+        }
+
+        /* ===== KEYBOARD SHORTCUT BADGE ===== */
+        .kbd {
+            display: inline-block;
+            padding: 2px 6px;
+            background: var(--bg-alt);
+            border: 1px solid var(--border-light);
+            border-radius: 4px;
+            font-size: 0.65rem;
+            font-family: monospace;
+            color: var(--text-dim);
+        }
+
+        /* ===== SCROLLBAR ===== */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+<div id="settings-app">
+    <!-- Header -->
+    <div class="settings-header">
+        <a href="index.html" class="back-btn" aria-label="Back to weather">←</a>
+        <div>
+            <div class="settings-title">⚙️ Settings</div>
+            <div class="settings-subtitle">Customize your Mini Weather experience</div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs" role="tablist" aria-label="Settings categories">
+        <button class="tab-btn active" data-tab="general" role="tab" aria-selected="true" aria-controls="tab-general">
+            🌐 General
+        </button>
+        <button class="tab-btn" data-tab="privacy" role="tab" aria-selected="false" aria-controls="tab-privacy">
+            🔒 Privacy
+        </button>
+        <button class="tab-btn" data-tab="appearance" role="tab" aria-selected="false" aria-controls="tab-appearance">
+            🎨 Appearance
+        </button>
+        <button class="tab-btn" data-tab="garden" role="tab" aria-selected="false" aria-controls="tab-garden">
+            🌱 Garden
+        </button>
+    </div>
+
+    <!-- ===== GENERAL TAB ===== -->
+    <div class="tab-panel active" id="tab-general" role="tabpanel">
+
+        <div class="settings-section">
+            <div class="section-header">🌡️ Units & Display</div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">Temperature Unit</div>
+                    <div class="setting-desc">Choose Celsius or Fahrenheit</div>
+                </div>
+                <div class="btn-group" role="group" aria-label="Temperature unit">
+                    <button class="btn-group-item" id="unit-c" onclick="setSetting('unit','C')">°C</button>
+                    <button class="btn-group-item" id="unit-f" onclick="setSetting('unit','F')">°F</button>
+                </div>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">Time Format</div>
+                    <div class="setting-desc">12-hour or 24-hour clock</div>
+                </div>
+                <div class="btn-group" role="group" aria-label="Time format">
+                    <button class="btn-group-item" id="time-12" onclick="setSetting('timeFormat','12h')">12h</button>
+                    <button class="btn-group-item" id="time-24" onclick="setSetting('timeFormat','24h')">24h</button>
+                </div>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">Wind Speed Unit</div>
+                    <div class="setting-desc">km/h or mph</div>
+                </div>
+                <div class="btn-group" role="group" aria-label="Wind speed unit">
+                    <button class="btn-group-item" id="wind-kmh" onclick="setSetting('windUnit','kmh')">km/h</button>
+                    <button class="btn-group-item" id="wind-mph" onclick="setSetting('windUnit','mph')">mph</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <div class="section-header">📍 Location</div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">Auto-detect Location</div>
+                    <div class="setting-desc">Use GPS to automatically find your location</div>
+                </div>
+                <label class="toggle" aria-label="Auto-detect location">
+                    <input type="checkbox" id="toggle-auto-location" onchange="setSetting('autoLocation', this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="location-input-row">
+                <input
+                    type="text"
+                    class="location-input"
+                    id="manual-location"
+                    placeholder="Enter city name or coordinates (e.g. London or 51.5,-0.1)"
+                    aria-label="Manual location"
+                    autocomplete="off"
+                    spellcheck="false"
+                >
+                <button class="action-btn" onclick="searchManualLocation()" aria-label="Search location">🔍</button>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">Saved Location</div>
+                    <div class="setting-desc" id="saved-location-display">No location saved</div>
+                </div>
+                <button class="action-btn danger" onclick="clearLocation()" aria-label="Clear saved location">🗑️ Clear</button>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <div class="section-header">🔄 Refresh & Updates</div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">Auto-refresh Interval</div>
+                    <div class="setting-desc">How often to automatically update weather data</div>
+                </div>
+                <select class="setting-select" id="refresh-interval" onchange="setSetting('refreshInterval', this.value)" aria-label="Refresh interval">
+                    <option value="0">Manual only</option>
+                    <option value="5">Every 5 min</option>
+                    <option value="10">Every 10 min</option>
+                    <option value="15">Every 15 min</option>
+                    <option value="30">Every 30 min</option>
+                    <option value="60">Every hour</option>
+                </select>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">Weather API Source</div>
+                    <div class="setting-desc">Primary data source for weather information</div>
+                </div>
+                <select class="setting-select" id="api-source" onchange="setSetting('apiSource', this.value)" aria-label="API source">
+                    <option value="open-meteo">Open-Meteo (Free, Primary)</option>
+                    <option value="weatherapi">WeatherAPI.com (Premium)</option>
+                    <option value="nws">NWS (US Only)</option>
+                    <option value="wttr">wttr.in (Fallback)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <div class="section-header">⭐ Favorite Locations</div>
+            <div id="favorites-list" style="padding: 8px 16px 16px;">
+                <div style="color: var(--text-dim); font-size: 0.82rem; padding: 8px 0;">No favorites saved yet. Add locations from the main app.</div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ===== PRIVACY TAB ===== -->
+    <div class="tab-panel" id="tab-privacy" role="tabpanel">
+
+        <div class="info-box success">
+            🔒 Mini Weather is privacy-first. No tracking, no analytics, no data sharing. All data stays on your device.
+        </div>
+
+        <div class="settings-section">
+            <div class="section-header">🤖 AI Forecast Enhancement</div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">AI-Enhanced Forecasts</div>
+                    <div class="setting-desc">Use AI to improve precipitation probability and temperature trend predictions. No location data is stored — processed in-memory only.</div>
+                </div>
+                <label class="toggle" aria-label="AI enhanced forecasts">
+                    <input type="checkbox" id="toggle-ai-forecasts" onchange="setSetting('aiForecasts', this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="info-box" style="margin: 0 16px 16px;">
+                🧠 When enabled, current weather data is sent to our AI endpoint for enhanced predictions. <strong>No location coordinates are stored.</strong> Data is processed in-memory and discarded immediately. You can opt out at any time.
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <div class="section-header">📊 Analytics & Tracking</div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">Usage Analytics</div>
+                    <div class="setting-desc">Anonymous usage statistics to improve the app (disabled by default)</div>
+                </div>
+                <label class="toggle" aria-label="Usage analytics">
+                    <input type="checkbox" id="toggle-analytics" onchange="setSetting('analytics', this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">Error Reporting</div>
+                    <div class="setting-desc">Send anonymous error reports to help fix bugs (no personal data)</div>
+                </div>
+                <label class="toggle" aria-label="Error reporting">
+                    <input type="checkbox" id="toggle-error-reporting" onchange="setSetting('errorReporting', this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <div class="section-header">🔔 Notifications</div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">Weather Alerts</div>
+                    <div class="setting-desc">Receive push notifications for severe weather conditions</div>
+                </div>
+                <label class="toggle" aria-label="Weather alerts">
+                    <input type="checkbox" id="toggle-notifications" onchange="toggleNotifications(this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">UV Index Alerts</div>
+                    <div class="setting-desc">Alert when UV index exceeds 6 (High)</div>
+                </div>
+                <label class="toggle" aria-label="UV alerts">
+                    <input type="checkbox" id="toggle-uv-alerts" onchange="setSetting('uvAlerts', this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">Rain Alerts</div>
+                    <div class="setting-desc">Alert when heavy rain is expected (>70% chance)</div>
+                </div>
+                <label class="toggle" aria-label="Rain alerts">
+                    <input type="checkbox" id="toggle-rain-alerts" onchange="setSetting('rainAlerts', this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">Wind Alerts</div>
+                    <div class="setting-desc">Alert when wind speed exceeds 40 km/h</div>
+                </div>
+                <label class="toggle" aria-label="Wind alerts">
+                    <input type="checkbox" id="toggle-wind-alerts" onchange="setSetting('windAlerts', this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <div class="section-header">📋 Data Stored on Your Device</div>
+            <table class="data-table" aria-label="Data retention information">
+                <thead>
+                    <tr>
+                        <th>Data Type</th>
+                        <th>Storage</th>
+                        <th>Purpose</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Location coordinates</td>
+                        <td><span class="badge badge-local">localStorage</span></td>
+                        <td>Remember your location between sessions</td>
+                    </tr>
+                    <tr>
+                        <td>Theme preference</td>
+                        <td><span class="badge badge-local">localStorage</span></td>
+                        <td>Remember your chosen theme</td>
+                    </tr>
+                    <tr>
+                        <td>Settings</td>
+                        <td><span class="badge badge-local">localStorage</span></td>
+                        <td>Store your preferences</td>
+                    </tr>
+                    <tr>
+                        <td>Garden data</td>
+                        <td><span class="badge badge-local">localStorage</span></td>
+                        <td>Track your virtual garden progress</td>
+                    </tr>
+                    <tr>
+                        <td>Weather cache</td>
+                        <td><span class="badge badge-memory">Memory only</span></td>
+                        <td>Reduce API calls (cleared on reload)</td>
+                    </tr>
+                    <tr>
+                        <td>AI forecast data</td>
+                        <td><span class="badge badge-none">Not stored</span></td>
+                        <td>Processed in-memory, immediately discarded</td>
+                    </tr>
+                    <tr>
+                        <td>Personal data</td>
+                        <td><span class="badge badge-none">Never collected</span></td>
+                        <td>We don't collect any personal information</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="settings-section">
+            <div class="section-header">🗑️ Data Management</div>
+            <div class="garden-actions">
+                <button class="action-btn danger" onclick="clearAllData()" aria-label="Clear all data">
+                    🗑️ Clear All Data
+                </button>
+                <button class="action-btn" onclick="exportData()" aria-label="Export data">
+                    📤 Export My Data
+                </button>
+            </div>
+            <div class="info-box warning" style="margin: 0 16px 16px;">
+                ⚠️ Clearing all data will remove your location, theme, garden progress, and all settings. This cannot be undone.
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ===== APPEARANCE TAB ===== -->
+    <div class="tab-panel" id="tab-appearance" role="tabpanel">
+
+        <div class="settings-section">
+            <div class="section-header">🎨 Theme</div>
+            <div class="theme-grid-settings" id="theme-grid-settings" role="listbox" aria-label="Theme selection">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <div class="section-header">🔤 Font Size</div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">Text Size</div>
+                    <div class="setting-desc">Adjust the base font size for readability</div>
+                </div>
+                <div class="btn-group" role="group" aria-label="Font size">
+                    <button class="btn-group-item" id="font-small" onclick="setFontSize('small')">S</button>
+                    <button class="btn-group-item" id="font-normal" onclick="setFontSize('normal')">M</button>
+                    <button class="btn-group-item" id="font-large" onclick="setFontSize('large')">L</button>
+                    <button class="btn-group-item" id="font-xlarge" onclick="setFontSize('xlarge')">XL</button>
+                </div>
+            </div>
+
+            <div class="font-preview" id="font-preview" style="margin: 0 16px 16px;">
+                Preview: The quick brown fox jumps over the lazy dog. 🌤️ 22°C
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <div class="section-header">🌙 Display</div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">Reduce Motion</div>
+                    <div class="setting-desc">Disable animations for accessibility or battery saving</div>
+                </div>
+                <label class="toggle" aria-label="Reduce motion">
+                    <input type="checkbox" id="toggle-reduce-motion" onchange="setSetting('reduceMotion', this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">Compact Mode</div>
+                    <div class="setting-desc">Show more information with less spacing</div>
+                </div>
+                <label class="toggle" aria-label="Compact mode">
+                    <input type="checkbox" id="toggle-compact" onchange="setSetting('compactMode', this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">Show Device Badge</div>
+                    <div class="setting-desc">Display device type indicator in the header</div>
+                </div>
+                <label class="toggle" aria-label="Show device badge">
+                    <input type="checkbox" id="toggle-device-badge" onchange="setSetting('showDeviceBadge', this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">Show Precipitation Chart</div>
+                    <div class="setting-desc">Display hourly precipitation bar chart</div>
+                </div>
+                <label class="toggle" aria-label="Show precipitation chart">
+                    <input type="checkbox" id="toggle-precip-chart" onchange="setSetting('showPrecipChart', this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <div class="section-header">⌨️ Keyboard Shortcuts</div>
+            <div style="padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;">
+                    <span>Show keyboard shortcuts help</span>
+                    <span><kbd class="kbd">?</kbd></span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;">
+                    <span>Refresh weather data</span>
+                    <span><kbd class="kbd">R</kbd></span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;">
+                    <span>Toggle temperature unit</span>
+                    <span><kbd class="kbd">U</kbd></span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;">
+                    <span>Get current location</span>
+                    <span><kbd class="kbd">L</kbd></span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;">
+                    <span>Open settings</span>
+                    <span><kbd class="kbd">S</kbd></span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;">
+                    <span>Open theme picker</span>
+                    <span><kbd class="kbd">T</kbd></span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;">
+                    <span>Export weather data</span>
+                    <span><kbd class="kbd">E</kbd></span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;">
+                    <span>Close modals / Go back</span>
+                    <span><kbd class="kbd">Esc</kbd></span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ===== GARDEN TAB ===== -->
+    <div class="tab-panel" id="tab-garden" role="tabpanel">
+
+        <div class="settings-section">
+            <div class="section-header">🌱 Garden Statistics</div>
+            <div class="garden-stats-preview" id="garden-stats-preview">
+                <div class="garden-stat-card">
+                    <div class="stat-val" id="gs-streak">0</div>
+                    <div class="stat-lbl">Day Streak</div>
+                </div>
+                <div class="garden-stat-card">
+                    <div class="stat-val" id="gs-days">0</div>
+                    <div class="stat-lbl">Days Alive</div>
+                </div>
+                <div class="garden-stat-card">
+                    <div class="stat-val" id="gs-stage">—</div>
+                    <div class="stat-lbl">Growth Stage</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <div class="section-header">⚙️ Garden Options</div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">Monthly Auto-Reset</div>
+                    <div class="setting-desc">Automatically reset garden on the 1st of each month</div>
+                </div>
+                <label class="toggle" aria-label="Monthly auto-reset">
+                    <input type="checkbox" id="toggle-garden-reset" onchange="setSetting('gardenMonthlyReset', this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">Garden Animations</div>
+                    <div class="setting-desc">Enable plant swaying and growth animations</div>
+                </div>
+                <label class="toggle" aria-label="Garden animations">
+                    <input type="checkbox" id="toggle-garden-anim" onchange="setSetting('gardenAnimations', this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <div class="section-header">🛠️ Garden Actions</div>
+            <div class="garden-actions">
+                <button class="action-btn success" onclick="exportGardenStats()" aria-label="Export garden stats">
+                    📤 Export Stats (JSON)
+                </button>
+                <button class="action-btn danger" onclick="confirmResetGarden()" aria-label="Reset garden">
+                    🔄 Reset Garden
+                </button>
+            </div>
+            <div class="info-box warning" style="margin: 0 16px 16px;">
+                ⚠️ Resetting the garden will clear your streak, days alive, and growth stage. This cannot be undone.
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <div class="section-header">📖 How the Garden Works</div>
+            <div style="padding: 12px 16px 16px; font-size: 0.82rem; color: var(--text-dim); line-height: 1.7;">
+                <p>Your virtual garden grows based on real weather conditions at your location:</p>
+                <br>
+                <p>🌡️ <strong>Temperature</strong> — Ideal range: 15–25°C (25 pts)</p>
+                <p>💧 <strong>Humidity</strong> — Ideal range: 40–70% (25 pts)</p>
+                <p>💨 <strong>Wind</strong> — Calm winds below 15 km/h (20 pts)</p>
+                <p>🌧️ <strong>Precipitation</strong> — No rain is best (15 pts)</p>
+                <p>☀️ <strong>UV Index</strong> — Safe UV below 3 (15 pts)</p>
+                <br>
+                <p>Score 88+ = 🌻 Thriving | 68+ = 🌿 Healthy | 45+ = 🌾 Stressed | Below = 🍂 Wilted</p>
+                <br>
+                <p>The garden resets monthly. Check in daily to build your streak!</p>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Confirm Dialog -->
+<div class="confirm-overlay" id="confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <div class="confirm-box">
+        <div class="confirm-title" id="confirm-title">Are you sure?</div>
+        <div class="confirm-msg" id="confirm-msg">This action cannot be undone.</div>
+        <div class="confirm-actions">
+            <button class="action-btn" onclick="closeConfirm()" id="confirm-cancel">Cancel</button>
+            <button class="action-btn danger" onclick="executeConfirm()" id="confirm-ok">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="settings.js"></script>
+</body>
+</html>
