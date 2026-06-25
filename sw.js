@@ -1,22 +1,15 @@
 // Service Worker - Offline support & caching
-const CACHE_NAME = 'mini-weather-v4';
-const URLS_TO_CACHE = [
-    '/',
-    '/index.html',
-    '/app.js',
-    '/weather.js',
-    '/ai-forecast.js',
-    '/privacy.js',
-    '/settings.html',
-    '/settings.js',
-    '/forecast-api.js',
-    '/manifest.json'
-];
+const CACHE_NAME = 'mini-weather-v5';
+const BASE_URL = self.location.origin;
 
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_NAME).then(cache => {
-            return cache.addAll(URLS_TO_CACHE).catch(() => {});
+            // Cache essential files
+            return Promise.all([
+                cache.add(`${BASE_URL}/`),
+                cache.add(`${BASE_URL}/index.html`).catch(() => {})
+            ]).catch(() => {});
         })
     );
     self.skipWaiting();
@@ -27,59 +20,66 @@ self.addEventListener('activate', event => {
         caches.keys().then(cacheNames => {
             return Promise.all(
                 cacheNames.map(cacheName => {
-                    if (cacheName !== CACHE_NAME) {
+                    if (cacheName !== CACHE_NAME && cacheName.startsWith('mini-weather')) {
                         return caches.delete(cacheName);
                     }
                 })
             );
-        })
+        }).then(() => self.clients.claim())
     );
-    self.clients.claim();
 });
 
 self.addEventListener('fetch', event => {
+    const url = event.request.url;
+    
     // Skip non-GET requests
     if (event.request.method !== 'GET') return;
+    
+    // Skip Chrome extensions and other non-http(s) requests
+    if (!url.startsWith('http')) return;
 
-    // POST requests — always network, never cache
-    if (event.request.method === 'POST') {
-        event.respondWith(fetch(event.request).catch(() => new Response(
-            JSON.stringify({ error: 'Offline' }), { status: 503, headers: { 'Content-Type': 'application/json' } }
-        )));
-        return;
-    }
-
-    // API requests - network first
-    if (event.request.url.includes('api.weatherapi.com') ||
-        event.request.url.includes('api.open-meteo.com') ||
-        event.request.url.includes('api.weather.gov') ||
-        event.request.url.includes('wttr.in') ||
-        event.request.url.includes('nominatim.openstreetmap.org')) {
+    // API requests - network first with fallback
+    if (url.includes('open-meteo.com') ||
+        url.includes('weatherapi.com') ||
+        url.includes('weather.gov') ||
+        url.includes('wttr.in') ||
+        url.includes('nominatim.openstreetmap.org')) {
         event.respondWith(
             fetch(event.request)
                 .then(response => {
                     if (response.ok) {
-                        const cache = caches.open(CACHE_NAME);
-                        cache.then(c => c.put(event.request, response.clone()));
+                        const responseClone = response.clone();
+                        caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseClone));
                     }
                     return response;
                 })
-                .catch(() => caches.match(event.request))
+                .catch(() => new Response(JSON.stringify({error: 'Offline'}), {
+                    status: 503,
+                    headers: {'Content-Type': 'application/json'}
+                }))
         );
         return;
     }
 
-    // Static assets - cache first
+    // Static assets - stale while revalidate
     event.respondWith(
         caches.match(event.request)
-            .then(response => response || fetch(event.request))
-            .catch(() => new Response('Offline'))
+            .then(cachedResponse => {
+                const fetchPromise = fetch(event.request).then(response => {
+                    if (response.ok) {
+                        caches.open(CACHE_NAME).then(cache => cache.put(event.request, response.clone()));
+                    }
+                    return response;
+                }).catch(() => null);
+                
+                return cachedResponse || fetchPromise;
+            })
     );
 });
 
 self.addEventListener('message', event => {
-    if (event.data.type === 'SHOW_NOTIFICATION') {
-        self.registration.showNotification(event.data.title, event.data.options);
+    if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
+        self.registration.showNotification(event.data.title, event.data.options || {});
     }
 });
 
