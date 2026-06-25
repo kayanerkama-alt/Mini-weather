@@ -103,6 +103,24 @@ class NotificationManager {
     constructor() {
         this.supported = 'Notification' in window;
         this.enabled = localStorage.getItem('mini-weather-notifications') === 'true';
+        this._notifications = this._loadNotifications();
+        this._alertBadge = document.getElementById('nav-alert-badge');
+    }
+
+    _loadNotifications() {
+        try {
+            const raw = localStorage.getItem('mini-weather-notif-history');
+            if (raw) return JSON.parse(raw);
+        } catch { /* ignore */ }
+        return [];
+    }
+
+    _saveNotifications() {
+        try {
+            // Keep only last 50 notifications
+            const toSave = this._notifications.slice(-50);
+            localStorage.setItem('mini-weather-notif-history', JSON.stringify(toSave));
+        } catch { /* ignore */ }
     }
 
     async requestPermission() {
@@ -131,9 +149,155 @@ class NotificationManager {
             }
         } catch (e) { /* silent */ }
     }
+
+    // Add notification to in-app history
+    addToHistory(notif) {
+        const item = {
+            id: Date.now(),
+            timestamp: new Date().toISOString(),
+            read: false,
+            ...notif
+        };
+        this._notifications.unshift(item);
+        this._saveNotifications();
+        this._updateBadge();
+        this._renderNotificationPanel();
+        return item;
+    }
+
+    _updateBadge() {
+        const unread = this._notifications.filter(n => !n.read).length;
+        if (this._alertBadge) {
+            if (unread > 0) {
+                this._alertBadge.textContent = unread > 9 ? '9+' : unread;
+                this._alertBadge.style.display = 'block';
+            } else {
+                this._alertBadge.style.display = 'none';
+            }
+        }
+    }
+
+    markAsRead(id) {
+        const notif = this._notifications.find(n => n.id === id);
+        if (notif) {
+            notif.read = true;
+            this._saveNotifications();
+            this._updateBadge();
+        }
+    }
+
+    markAllRead() {
+        this._notifications.forEach(n => n.read = true);
+        this._saveNotifications();
+        this._updateBadge();
+        this._renderNotificationPanel();
+    }
+
+    clearAll() {
+        this._notifications = [];
+        this._saveNotifications();
+        this._updateBadge();
+        this._renderNotificationPanel();
+    }
+
+    _renderNotificationPanel() {
+        const container = document.getElementById('notif-list');
+        if (!container) return;
+
+        if (this._notifications.length === 0) {
+            container.innerHTML = `
+                <div class="notif-empty" style="text-align:center;padding:40px 20px;color:var(--text-muted);">
+                    <span style="font-size:3rem;">🔔</span>
+                    <p style="margin-top:12px;font-size:0.82rem;">No notifications yet</p>
+                    <p style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">Enable notifications to get weather alerts</p>
+                </div>`;
+            return;
+        }
+
+        container.innerHTML = this._notifications.map(n => {
+            const time = this._formatNotifTime(n.timestamp);
+            const typeClass = `notif-type-${n.type || 'info'}`;
+            const unreadClass = n.read ? '' : 'unread';
+            return `
+                <div class="notif-item ${typeClass} ${unreadClass}" data-id="${n.id}" onclick="notifMgr.handleNotifClick(${n.id})">
+                    <div style="display:flex;align-items:flex-start;gap:10px;">
+                        <span class="notif-icon">${n.icon || '🔔'}</span>
+                        <div class="notif-content">
+                            <div class="notif-title">${this._escapeHtml(n.title)}</div>
+                            <div class="notif-message">${this._escapeHtml(n.message)}</div>
+                            <div class="notif-time">${time}</div>
+                        </div>
+                    </div>
+                </div>`;
+        }).join('');
+    }
+
+    _formatNotifTime(isoString) {
+        const date = new Date(isoString);
+        const now = new Date();
+        const diff = now - date;
+        const mins = Math.floor(diff / 60000);
+        const hours = Math.floor(diff / 3600000);
+        const days = Math.floor(diff / 86400000);
+        if (mins < 1) return 'Just now';
+        if (mins < 60) return `${mins}m ago`;
+        if (hours < 24) return `${hours}h ago`;
+        if (days < 7) return `${days}d ago`;
+        return date.toLocaleDateString();
+    }
+
+    _escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    handleNotifClick(id) {
+        this.markAsRead(id);
+        const notif = this._notifications.find(n => n.id === id);
+        if (notif && notif.action) {
+            notif.action();
+        }
+    }
+
+    showNotificationPanel() {
+        const panel = document.getElementById('notification-panel');
+        const overlay = document.getElementById('notif-overlay');
+        if (panel) {
+            this._renderNotificationPanel();
+            panel.classList.add('active');
+        }
+        if (overlay) {
+            overlay.classList.add('active');
+        }
+    }
+
+    hideNotificationPanel() {
+        const panel = document.getElementById('notification-panel');
+        const overlay = document.getElementById('notif-overlay');
+        if (panel) panel.classList.remove('active');
+        if (overlay) overlay.classList.remove('active');
+    }
 }
 
-const notifications = new NotificationManager();
+const notifMgr = new NotificationManager();
+
+// Extend notifications to use notifMgr
+const notifications = {
+    get enabled() { return notifMgr.enabled; },
+    get supported() { return notifMgr.supported; },
+    async requestPermission() { return notifMgr.requestPermission(); },
+    send(title, options) { 
+        notifMgr.send(title, options);
+        // Also add to in-app history
+        notifMgr.addToHistory({
+            icon: options?.icon || '🔔',
+            title,
+            message: options?.body || '',
+            type: options?.type || 'info'
+        });
+    }
+};
 
 /* ============================================================
    TOAST
@@ -2055,21 +2219,204 @@ class WeatherApp {
         if (!notifications.enabled) return;
         if (!settings.get('notificationsEnabled')) return;
 
-        if (settings.get('alertUV') && current.uvIndex >= 11) {
-            notifications.send('⚠️ Extreme UV Alert', { body: `UV Index: ${Math.round(current.uvIndex)} — Avoid sun exposure` });
+        // Check for new severe weather conditions to notify
+        const lastNotif = localStorage.getItem('mini-weather-last-notif') || '{}';
+        const lastData = JSON.parse(lastNotif);
+        const now = Date.now();
+
+        // Rate limit notifications to every 30 minutes
+        const NOTIF_COOLDOWN = 30 * 60 * 1000;
+
+        if (settings.get('alertUV') && current.uvIndex >= 11 && (!lastData.uvTime || now - lastData.uvTime > NOTIF_COOLDOWN)) {
+            notifications.send('⚠️ Extreme UV Alert', { 
+                body: `UV Index: ${Math.round(current.uvIndex)} — Avoid sun exposure`,
+                type: 'alert'
+            });
+            lastData.uvTime = now;
         }
-        if (settings.get('alertWind') && current.windSpeed >= 60) {
-            notifications.send('⚠️ Severe Wind Alert', { body: `Winds: ${windDisplay(current.windSpeed)} ${windUnit()}` });
+        if (settings.get('alertWind') && current.windSpeed >= 60 && (!lastData.windTime || now - lastData.windTime > NOTIF_COOLDOWN)) {
+            notifications.send('⚠️ Severe Wind Alert', { 
+                body: `Winds: ${windDisplay(current.windSpeed)} ${windUnit()}`,
+                type: 'alert'
+            });
+            lastData.windTime = now;
         }
-        if (settings.get('alertRain') && daily && daily[0] && daily[0].precipChance >= 80) {
-            notifications.send('🌧️ Heavy Rain Expected', { body: `${daily[0].precipChance}% chance of rain today` });
+        if (settings.get('alertRain') && daily && daily[0] && daily[0].precipChance >= 80 && (!lastData.rainTime || now - lastData.rainTime > NOTIF_COOLDOWN)) {
+            notifications.send('🌧️ Heavy Rain Expected', { 
+                body: `${daily[0].precipChance}% chance of rain today`,
+                type: 'warning'
+            });
+            lastData.rainTime = now;
         }
-        if (settings.get('alertCold') && current.temp <= 0) {
-            notifications.send('❄️ Freezing Conditions', { body: `Temperature: ${toDisplay(current.temp)}°${unit}` });
+        if (settings.get('alertCold') && current.temp <= 0 && (!lastData.coldTime || now - lastData.coldTime > NOTIF_COOLDOWN)) {
+            notifications.send('❄️ Freezing Conditions', { 
+                body: `Temperature: ${toDisplay(current.temp)}°${unit}`,
+                type: 'warning'
+            });
+            lastData.coldTime = now;
         }
-        if (settings.get('alertHeat') && current.temp >= 38) {
-            notifications.send('🔥 Extreme Heat', { body: `Temperature: ${toDisplay(current.temp)}°${unit}` });
+        if (settings.get('alertHeat') && current.temp >= 38 && (!lastData.heatTime || now - lastData.heatTime > NOTIF_COOLDOWN)) {
+            notifications.send('🔥 Extreme Heat', { 
+                body: `Temperature: ${toDisplay(current.temp)}°${unit}`,
+                type: 'alert'
+            });
+            lastData.heatTime = now;
         }
+
+        localStorage.setItem('mini-weather-last-notif', JSON.stringify(lastData));
+    }
+
+    /**
+     * Generate a comprehensive weather report for the day
+     */
+    generateWeatherReport(current, hourly, daily) {
+        const report = {
+            date: new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
+            location: this.locationName || 'Unknown Location',
+            overview: '',
+            highlights: [],
+            details: {},
+            recommendations: []
+        };
+
+        // Overview
+        const temp = toDisplay(current.temp);
+        const condition = current.description || 'Unknown';
+        report.overview = `Today's weather in ${report.location}: ${condition} with temperatures around ${temp}°${unit}.`;
+
+        // Highlights
+        if (daily && daily[0]) {
+            const today = daily[0];
+            if (today.maxTemp && today.minTemp) {
+                report.highlights.push({
+                    icon: '🌡️',
+                    label: 'Temperature Range',
+                    value: `${toDisplay(today.minTemp)}° - ${toDisplay(today.maxTemp)}°${unit}`
+                });
+            }
+            if (today.precipChance) {
+                report.highlights.push({
+                    icon: '💧',
+                    label: 'Rain Chance',
+                    value: `${today.precipChance}%`
+                });
+            }
+            if (current.humidity) {
+                report.highlights.push({
+                    icon: '💦',
+                    label: 'Humidity',
+                    value: `${current.humidity}%`
+                });
+            }
+            if (current.windSpeed) {
+                report.highlights.push({
+                    icon: '💨',
+                    label: 'Wind Speed',
+                    value: `${windDisplay(current.windSpeed)} ${windUnit()}`
+                });
+            }
+            if (current.uvIndex) {
+                report.highlights.push({
+                    icon: '☀️',
+                    label: 'UV Index',
+                    value: `${Math.round(current.uvIndex)} (${getUVLabel(current.uvIndex)})`
+                });
+            }
+            if (today.sunrise && today.sunset) {
+                report.highlights.push({
+                    icon: '🌅',
+                    label: 'Sun',
+                    value: `${this._formatSunTime(today.sunrise)} - ${this._formatSunTime(today.sunset)}`
+                });
+            }
+        }
+
+        // Hourly breakdown
+        const nextHours = hourly ? hourly.slice(0, 12) : [];
+        if (nextHours.length > 0) {
+            const peakTemp = Math.max(...nextHours.map(h => h.temp).filter(t => t != null));
+            const minTemp = Math.min(...nextHours.map(h => h.temp).filter(t => t != null));
+            report.details.hourlyPeak = { temp: peakTemp, time: nextHours.find(h => h.temp === peakTemp)?.time };
+            report.details.hourlyMin = { temp: minTemp, time: nextHours.find(h => h.temp === minTemp)?.time };
+        }
+
+        // Recommendations
+        if (current.uvIndex >= 6) {
+            report.recommendations.push({ icon: '🧴', text: 'Apply sunscreen before going outside' });
+        }
+        if (current.temp >= 30) {
+            report.recommendations.push({ icon: '💧', text: 'Stay hydrated - drink plenty of water' });
+        }
+        if (current.temp <= 5) {
+            report.recommendations.push({ icon: '🧥', text: 'Dress warmly with layered clothing' });
+        }
+        if (daily && daily[0] && daily[0].precipChance >= 50) {
+            report.recommendations.push({ icon: '☂️', text: 'Carry an umbrella or rain jacket' });
+        }
+        if (current.windSpeed >= 30) {
+            report.recommendations.push({ icon: '🏠', text: 'Secure loose outdoor items' });
+        }
+        if (current.humidity >= 80) {
+            report.recommendations.push({ icon: '🌿', text: 'May feel muggy - AC or dehumidifier recommended' });
+        }
+
+        return report;
+    }
+
+    /**
+     * Render weather report to HTML
+     */
+    renderWeatherReport(report) {
+        const chips = report.highlights.map(h => `
+            <div class="report-chip">
+                <span>${h.icon}</span>
+                <span>${h.value}</span>
+            </div>
+        `).join('');
+
+        const recommendations = report.recommendations.map(r => `
+            <div style="padding:6px 0;font-size:0.75rem;color:var(--text-dim);">
+                <span style="margin-right:8px;">${r.icon}</span>${r.text}
+            </div>
+        `).join('');
+
+        return `
+            <div class="weather-report">
+                <div class="report-header">
+                    <div class="report-title">
+                        📋 Daily Weather Report
+                        <span class="report-badge">${report.date}</span>
+                    </div>
+                </div>
+                <div class="report-content">
+                    <p><strong>${report.overview}</strong></p>
+                </div>
+                <div class="report-highlights">
+                    ${chips}
+                </div>
+                ${recommendations ? `
+                    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+                        <div style="font-size:0.75rem;font-weight:600;color:var(--accent-light);margin-bottom:8px;">💡 Recommendations</div>
+                        ${recommendations}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    /**
+     * Get current weather report HTML
+     */
+    getReportHTML() {
+        if (!this.currentWeather) {
+            return '<div class="weather-report"><p style="color:var(--text-muted);text-align:center;">No weather data available. Fetch weather first.</p></div>';
+        }
+        const report = this.generateWeatherReport(
+            this.currentWeather.current,
+            this.currentWeather.hourly,
+            this.currentWeather.daily
+        );
+        return this.renderWeatherReport(report);
     }
 
     /* ----------------------------------------------------------
@@ -2614,3 +2961,115 @@ const app = new WeatherApp();
 if (typeof privacyManager !== 'undefined') {
     privacyManager.maybeShowBanner();
 }
+
+/* ============================================================
+   MOBILE BOTTOM NAVIGATION
+   ============================================================ */
+function initMobileNav() {
+    const navItems = document.querySelectorAll('.nav-item[data-tab]');
+    
+    navItems.forEach(item => {
+        item.addEventListener('click', () => {
+            const tab = item.dataset.tab;
+            
+            // Update active state
+            navItems.forEach(n => n.classList.remove('active'));
+            item.classList.add('active');
+            
+            // Handle tab content
+            switch (tab) {
+                case 'home':
+                    // Show main weather content
+                    document.getElementById('weather-content').style.display = 'block';
+                    closeAllMobilePanels();
+                    break;
+                case 'alerts':
+                    // Show notification panel
+                    notifMgr.showNotificationPanel();
+                    break;
+                case 'report':
+                    // Show daily weather report
+                    if (typeof app.getReportHTML === 'function') {
+                        document.getElementById('weather-content').style.display = 'block';
+                        closeAllMobilePanels();
+                        // Insert report at top
+                        const container = document.getElementById('weather-content');
+                        if (container) {
+                            const reportHTML = app.getReportHTML();
+                            const currentContent = container.innerHTML;
+                            // Only prepend if not already showing report
+                            if (!currentContent.includes('Daily Weather Report')) {
+                                container.innerHTML = reportHTML + currentContent;
+                            }
+                        }
+                    }
+                    break;
+                case 'hourly':
+                    // Scroll to hourly forecast
+                    document.getElementById('weather-content').style.display = 'block';
+                    closeAllMobilePanels();
+                    const hourlySection = document.querySelector('.hourly');
+                    if (hourlySection) {
+                        hourlySection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                    break;
+                case 'settings':
+                    // Open settings modal
+                    if (typeof app !== 'undefined') {
+                        app.showSettingsModal();
+                    }
+                    break;
+            }
+        });
+    });
+    
+    // Notification panel close button
+    const clearAllBtn = document.getElementById('notif-clear-all');
+    if (clearAllBtn) {
+        clearAllBtn.addEventListener('click', () => {
+            if (confirm('Clear all notifications?')) {
+                notifMgr.clearAll();
+            }
+        });
+    }
+    
+    // Notification overlay click to close
+    const notifOverlay = document.getElementById('notif-overlay');
+    if (notifOverlay) {
+        notifOverlay.addEventListener('click', () => {
+            notifMgr.hideNotificationPanel();
+        });
+    }
+    
+    // Notification panel close on mobile swipe right
+    let touchStartX = 0;
+    const notifPanel = document.getElementById('notification-panel');
+    if (notifPanel) {
+        notifPanel.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+        }, { passive: true });
+        
+        notifPanel.addEventListener('touchend', (e) => {
+            const touchEndX = e.changedTouches[0].clientX;
+            const diff = touchEndX - touchStartX;
+            if (diff > 80 && touchStartX < 50) {
+                notifMgr.hideNotificationPanel();
+            }
+        }, { passive: true });
+    }
+}
+
+function closeAllMobilePanels() {
+    notifMgr.hideNotificationPanel();
+}
+
+// Initialize mobile nav when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMobileNav);
+} else {
+    initMobileNav();
+}
+
+// Also expose app methods globally for the nav
+window.app = app;
+window.notifMgr = notifMgr;

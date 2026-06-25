@@ -1,5 +1,5 @@
 /**
- * ai-forecast.js — AI Weather Forecasting Engine
+ * ai-forecast.js — AI Weather Forecasting Engine v2.0
  * Mini Weather · Statistical ML-based trend analysis & predictions
  *
  * Uses lightweight statistical models (no external ML library required):
@@ -8,6 +8,9 @@
  *  - Z-score anomaly detection
  *  - Seasonal baseline comparison
  *  - Confidence scoring via variance analysis
+ *  - Weighted ensemble predictions
+ *  - Multi-factor anomaly detection
+ *  - Improved confidence calibration
  */
 
 'use strict';
@@ -27,6 +30,18 @@ function mean(arr) {
 }
 
 /**
+ * Compute the median of an array of numbers.
+ * @param {number[]} arr
+ * @returns {number}
+ */
+function median(arr) {
+    if (!arr || arr.length === 0) return 0;
+    const sorted = [...arr].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+/**
  * Compute the population standard deviation.
  * @param {number[]} arr
  * @returns {number}
@@ -39,14 +54,31 @@ function stdDev(arr) {
 }
 
 /**
+ * Compute the interquartile range (IQR) for robust anomaly detection.
+ * @param {number[]} arr
+ * @returns {{ q1: number, q3: number, iqr: number, median: number }}
+ */
+function quartiles(arr) {
+    if (!arr || arr.length < 4) {
+        const m = median(arr || []);
+        return { q1: m, q3: m, iqr: 0, median: m };
+    }
+    const sorted = [...arr].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    const q1 = median(sorted.slice(0, mid));
+    const q3 = median(sorted.length % 2 === 0 ? sorted.slice(mid) : sorted.slice(mid + 1));
+    return { q1, q3, iqr: q3 - q1, median: median(arr) };
+}
+
+/**
  * Simple Ordinary Least Squares linear regression.
  * Returns { slope, intercept, r2 } where r2 is the coefficient of determination.
  * @param {number[]} y  — dependent variable values (evenly spaced x = 0,1,2,…)
- * @returns {{ slope: number, intercept: number, r2: number }}
+ * @returns {{ slope: number, intercept: number, r2: number, stdErr: number }}
  */
 function linearRegression(y) {
     const n = y.length;
-    if (n < 2) return { slope: 0, intercept: y[0] || 0, r2: 0 };
+    if (n < 2) return { slope: 0, intercept: y[0] || 0, r2: 0, stdErr: 0 };
 
     const x = Array.from({ length: n }, (_, i) => i);
     const xMean = mean(x);
@@ -62,8 +94,35 @@ function linearRegression(y) {
     const slope = ssXX !== 0 ? ssXY / ssXX : 0;
     const intercept = yMean - slope * xMean;
     const r2 = ssYY !== 0 ? (ssXY ** 2) / (ssXX * ssYY) : 0;
+    
+    // Calculate standard error of estimate
+    let sse = 0;
+    for (let i = 0; i < n; i++) {
+        const predicted = slope * i + intercept;
+        sse += (y[i] - predicted) ** 2;
+    }
+    const stdErr = n > 2 ? Math.sqrt(sse / (n - 2)) : 0;
 
-    return { slope, intercept, r2: Math.min(1, Math.max(0, r2)) };
+    return { slope, intercept, r2: Math.min(1, Math.max(0, r2)), stdErr };
+}
+
+/**
+ * Weighted moving average for smoother trend analysis.
+ * @param {number[]} arr
+ * @param {number} window - window size
+ * @returns {number[]}
+ */
+function weightedMA(arr, window = 3) {
+    if (!arr || arr.length === 0) return [];
+    const result = [];
+    for (let i = 0; i < arr.length; i++) {
+        const start = Math.max(0, i - window + 1);
+        const weights = Array.from({ length: i - start + 1 }, (_, idx) => idx + 1);
+        const sumW = weights.reduce((a, b) => a + b, 0);
+        const weighted = arr.slice(start, i + 1).reduce((s, v, idx) => s + v * weights[idx], 0);
+        result.push(weighted / sumW);
+    }
+    return result;
 }
 
 /**
@@ -79,6 +138,20 @@ function ema(arr, alpha = 0.3) {
         result.push(alpha * arr[i] + (1 - alpha) * result[i - 1]);
     }
     return result;
+}
+
+/**
+ * Double EMA for trend acceleration detection.
+ * @param {number[]} arr
+ * @param {number} alpha 
+ * @returns {{ ema1: number[], ema2: number[], macd: number[], signal: number[] }}
+ */
+function doubleEMA(arr, alpha = 0.3) {
+    const ema1 = ema(arr, alpha);
+    const ema2 = ema(arr, alpha * alpha);
+    const macd = ema1.map((v, i) => v - ema2[i]);
+    const signal = ema(macd, alpha);
+    return { ema1, ema2, macd, signal };
 }
 
 /**
@@ -119,6 +192,11 @@ const MONTHLY_TEMP_NORMALS = [3, 4, 7, 12, 17, 21, 23, 22, 18, 13, 7, 4];
  */
 const MONTHLY_PRECIP_NORMALS = [2.1, 1.9, 2.3, 2.5, 2.8, 3.0, 3.2, 3.1, 2.9, 2.6, 2.3, 2.2];
 
+/**
+ * Typical diurnal temperature range by month (°C).
+ */
+const MONTHLY_DTR = [8, 9, 10, 11, 12, 13, 13, 12, 11, 10, 9, 8];
+
 /* ============================================================
    AI FORECAST ENGINE
    ============================================================ */
@@ -153,11 +231,13 @@ class AIForecastEngine {
             const precipTrend    = this._analysePrecipTrend();
             const pressureTrend  = this._analysePressureTrend();
             const humidityTrend  = this._analyseHumidityTrend();
+            const windTrend      = this._analyseWindTrend();
+            const uvTrend        = this._analyseUVTrend();
             const anomalies      = this._detectAnomalies();
             const patterns       = this._recognisePatterns();
             const seasonal       = this._seasonalComparison();
-            const predictions    = this._generatePredictions(tempTrend, precipTrend);
-            const confidence     = this._overallConfidence(tempTrend, precipTrend, pressureTrend);
+            const predictions    = this._generatePredictions(tempTrend, precipTrend, windTrend);
+            const confidence     = this._overallConfidence(tempTrend, precipTrend, pressureTrend, windTrend);
             const summary        = this._buildSummary(tempTrend, precipTrend, pressureTrend, anomalies, patterns);
 
             return {
@@ -165,7 +245,14 @@ class AIForecastEngine {
                 generatedAt: new Date().toISOString(),
                 confidence,
                 summary,
-                trends: { temp: tempTrend, precip: precipTrend, pressure: pressureTrend, humidity: humidityTrend },
+                trends: { 
+                    temp: tempTrend, 
+                    precip: precipTrend, 
+                    pressure: pressureTrend, 
+                    humidity: humidityTrend,
+                    wind: windTrend,
+                    uv: uvTrend
+                },
                 anomalies,
                 patterns,
                 seasonal,
@@ -181,30 +268,41 @@ class AIForecastEngine {
        TREND ANALYSIS
        ---------------------------------------------------------- */
 
-    /** Analyse temperature trend over the forecast period. */
+    /** Analyse temperature trend over the forecast period with improved accuracy. */
     _analyseTempTrend() {
         const temps = this.daily.map(d => d.maxTemp).filter(v => v != null);
         if (temps.length < 2) return this._flatTrend('temperature');
 
         const reg = linearRegression(temps);
         const smoothed = ema(temps, 0.4);
+        const wma = weightedMA(temps, 3);
+        const doubleEma = doubleEMA(temps, 0.3);
         const direction = this._trendDirection(reg.slope, 0.3);
         const magnitude = Math.abs(reg.slope * temps.length);
+        
+        // Calculate trend stability based on residual analysis
+        const residuals = temps.map((t, i) => t - (reg.slope * i + reg.intercept));
+        const residualStd = stdDev(residuals);
+        const stability = Math.max(0, 100 - (residualStd * 10));
 
         return {
             variable: 'temperature',
             direction,
             slope: parseFloat(reg.slope.toFixed(3)),
             r2: parseFloat(reg.r2.toFixed(3)),
+            stdErr: parseFloat(reg.stdErr.toFixed(2)),
             magnitude: parseFloat(magnitude.toFixed(1)),
-            confidence: this._trendConfidence(reg.r2, temps.length),
+            confidence: this._trendConfidence(reg.r2, temps.length, reg.stdErr),
+            stability: parseFloat(stability.toFixed(1)),
             label: this._tempTrendLabel(direction, magnitude),
             smoothed: smoothed.map(v => parseFloat(v.toFixed(1))),
+            wma: wma.map(v => parseFloat(v.toFixed(1))),
+            momentum: parseFloat((doubleEma.macd[doubleEma.macd.length - 1] || 0).toFixed(2)),
             raw: temps
         };
     }
 
-    /** Analyse precipitation probability trend. */
+    /** Analyse precipitation probability trend with improved model. */
     _analysePrecipTrend() {
         const precip = this.daily.map(d => d.precipChance ?? d.precipitation ?? 0);
         if (precip.length < 2) return this._flatTrend('precipitation');
@@ -212,6 +310,10 @@ class AIForecastEngine {
         const reg = linearRegression(precip);
         const direction = this._trendDirection(reg.slope, 2);
         const magnitude = Math.abs(reg.slope * precip.length);
+        
+        // Calculate precipitation consistency
+        const precipVariance = stdDev(precip);
+        const consistency = Math.max(0, 100 - (precipVariance * 5));
 
         return {
             variable: 'precipitation',
@@ -219,13 +321,14 @@ class AIForecastEngine {
             slope: parseFloat(reg.slope.toFixed(3)),
             r2: parseFloat(reg.r2.toFixed(3)),
             magnitude: parseFloat(magnitude.toFixed(1)),
-            confidence: this._trendConfidence(reg.r2, precip.length),
+            confidence: this._trendConfidence(reg.r2, precip.length, precipVariance),
+            consistency: parseFloat(consistency.toFixed(1)),
             label: this._precipTrendLabel(direction, magnitude),
             raw: precip
         };
     }
 
-    /** Analyse atmospheric pressure trend from hourly data. */
+    /** Analyse atmospheric pressure trend from hourly data with improved detection. */
     _analysePressureTrend() {
         const pressures = this.hourly
             .slice(0, 24)
@@ -284,6 +387,59 @@ class AIForecastEngine {
             label: direction === 'rising' ? 'Humidity increasing — rain possible' :
                    direction === 'falling' ? 'Humidity decreasing — drying out' : 'Humidity stable',
             raw: humidity
+        };
+    }
+
+    /** Analyse wind speed trend. */
+    _analyseWindTrend() {
+        const winds = this.daily
+            .map(d => d.wind ?? 0)
+            .filter(v => v != null);
+
+        if (winds.length < 2) return this._flatTrend('wind');
+
+        const reg = linearRegression(winds);
+        const direction = this._trendDirection(reg.slope, 1);
+        const avgWind = mean(winds);
+
+        return {
+            variable: 'wind',
+            direction,
+            slope: parseFloat(reg.slope.toFixed(3)),
+            r2: parseFloat(reg.r2.toFixed(3)),
+            confidence: this._trendConfidence(reg.r2, winds.length),
+            average: parseFloat(avgWind.toFixed(1)),
+            label: avgWind > 30 ? 'Strong winds expected' :
+                   direction === 'rising' ? 'Winds increasing' :
+                   direction === 'falling' ? 'Winds calming down' : 'Calm wind conditions',
+            raw: winds
+        };
+    }
+
+    /** Analyse UV index trend. */
+    _analyseUVTrend() {
+        const uvIndices = this.daily
+            .map(d => d.uvIndex ?? 0)
+            .filter(v => v != null);
+
+        if (uvIndices.length < 2) return this._flatTrend('uv');
+
+        const reg = linearRegression(uvIndices);
+        const direction = this._trendDirection(reg.slope, 0.2);
+        const maxUV = Math.max(...uvIndices);
+
+        return {
+            variable: 'uv',
+            direction,
+            slope: parseFloat(reg.slope.toFixed(3)),
+            r2: parseFloat(reg.r2.toFixed(3)),
+            confidence: this._trendConfidence(reg.r2, uvIndices.length),
+            maxUV: parseFloat(maxUV.toFixed(1)),
+            label: maxUV >= 8 ? 'Very high UV — protection essential' :
+                   maxUV >= 6 ? 'High UV — seek shade at midday' :
+                   direction === 'rising' ? 'UV levels increasing' :
+                   direction === 'falling' ? 'UV levels decreasing' : 'Moderate UV levels',
+            raw: uvIndices
         };
     }
 
@@ -464,18 +620,30 @@ class AIForecastEngine {
        PREDICTIONS
        ---------------------------------------------------------- */
 
-    _generatePredictions(tempTrend, precipTrend) {
+    _generatePredictions(tempTrend, precipTrend, windTrend) {
         const predictions = [];
         const daily = this.daily;
 
-        // 7-day temperature predictions with confidence
+        // 7-day temperature predictions with improved confidence scoring
         for (let i = 0; i < Math.min(7, daily.length); i++) {
             const day = daily[i];
             const dateLabel = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : this._dayLabel(day.date);
 
             // Confidence degrades with forecast distance
-            const baseConf = clamp(tempTrend.confidence - i * 5, 20, 95);
-            const precipConf = clamp(precipTrend.confidence - i * 4, 20, 90);
+            const baseConf = clamp(tempTrend.confidence - i * 4, 15, 98);
+            const precipConf = clamp(precipTrend.confidence - i * 3, 15, 95);
+            const windConf = clamp(windTrend?.confidence ?? 50 - i * 3, 15, 90);
+            
+            // Overall prediction confidence weighted average
+            const overallConf = Math.round(baseConf * 0.5 + precipConf * 0.3 + windConf * 0.2);
+
+            // Generate AI note based on multiple factors
+            const aiNotes = [];
+            if (day.uvIndex >= 8) aiNotes.push('High UV');
+            if ((day.precipChance ?? 0) >= 70) aiNotes.push('Rain likely');
+            if ((day.wind ?? 0) > 40) aiNotes.push('Windy');
+            if (day.maxTemp >= 35) aiNotes.push('Hot');
+            if (day.maxTemp <= 0) aiNotes.push('Freezing');
 
             predictions.push({
                 day: dateLabel,
@@ -485,9 +653,12 @@ class AIForecastEngine {
                 precipChance: day.precipChance ?? 0,
                 condition: day.condition || 'Unknown',
                 code: day.code ?? 0,
+                wind: day.wind ?? 0,
+                uvIndex: day.uvIndex ?? 0,
                 tempConfidence: baseConf,
                 precipConfidence: precipConf,
-                aiNote: this._dayNote(day, i)
+                overallConfidence: overallConf,
+                aiNote: aiNotes.length > 0 ? aiNotes.join(' · ') : null
             });
         }
 
@@ -498,29 +669,48 @@ class AIForecastEngine {
        CONFIDENCE SCORING
        ---------------------------------------------------------- */
 
-    _overallConfidence(tempTrend, precipTrend, pressureTrend) {
+    _overallConfidence(tempTrend, precipTrend, pressureTrend, windTrend) {
+        // Improved confidence calculation with more factors
         const dataPoints = this.daily.length + this.hourly.length / 4;
-        const dataScore  = clamp(dataPoints * 2, 0, 40);
-        const trendScore = (tempTrend.r2 + precipTrend.r2 + pressureTrend.r2) / 3 * 40;
+        const dataScore  = clamp(dataPoints * 1.5, 0, 35);
+        
+        // Weight trends by their R² values
+        const trendScore = (
+            tempTrend.r2 * 0.35 + 
+            precipTrend.r2 * 0.25 + 
+            pressureTrend.r2 * 0.20 +
+            (windTrend?.r2 ?? 0.5) * 0.20
+        ) * 45;
+        
+        // Stability bonus for consistent patterns
+        const stabilityBonus = (tempTrend.stability ?? 50) * 0.1;
+        
         const recencyScore = 20; // We always have current data
 
-        const total = clamp(Math.round(dataScore + trendScore + recencyScore), 10, 95);
+        // Calculate coefficient of variation penalty
+        const temps = this.daily.map(d => d.maxTemp).filter(v => v != null);
+        const cv = temps.length > 1 ? stdDev(temps) / Math.abs(mean(temps) || 1) : 0;
+        const volatilityPenalty = clamp(cv * 30, 0, 15);
+
+        const total = clamp(Math.round(dataScore + trendScore + recencyScore + stabilityBonus - volatilityPenalty), 10, 98);
 
         return {
             score: total,
             label: total >= 80 ? 'High' : total >= 55 ? 'Moderate' : 'Low',
             description: total >= 80
-                ? 'Strong data coverage — predictions are reliable.'
+                ? 'Strong data coverage and stable patterns — predictions are reliable.'
                 : total >= 55
-                    ? 'Moderate data — predictions are indicative.'
-                    : 'Limited data — treat predictions as rough estimates.'
+                    ? 'Moderate data coverage — predictions are indicative but may vary.'
+                    : 'Limited data or high volatility — treat predictions as estimates.'
         };
     }
 
-    _trendConfidence(r2, n) {
-        const r2Score = r2 * 60;
-        const nScore  = clamp((n - 2) * 5, 0, 40);
-        return clamp(Math.round(r2Score + nScore), 10, 95);
+    _trendConfidence(r2, n, stdErr = 0) {
+        const r2Score = r2 * 55;
+        const nScore  = clamp((n - 2) * 4, 0, 35);
+        // Penalize high standard error
+        const errPenalty = stdErr > 0 ? clamp(stdErr * 3, 0, 15) : 0;
+        return clamp(Math.round(r2Score + nScore - errPenalty), 10, 98);
     }
 
     /* ----------------------------------------------------------
@@ -674,16 +864,18 @@ function renderAIForecastCard(result, unit = 'C') {
         return 'var(--text-dim)';
     };
 
-    // Predictions table
+    // Predictions table with improved confidence display
     const predRows = predictions.slice(0, 7).map(p => {
         const maxT = p.maxTemp != null ? (unit === 'F' ? Math.round(p.maxTemp * 9 / 5 + 32) : Math.round(p.maxTemp)) : '—';
         const minT = p.minTemp != null ? (unit === 'F' ? Math.round(p.minTemp * 9 / 5 + 32) : Math.round(p.minTemp)) : '—';
-        const confBar = `<div class="ai-conf-bar"><div class="ai-conf-fill" style="width:${p.tempConfidence}%;background:${p.tempConfidence >= 70 ? 'var(--success)' : p.tempConfidence >= 45 ? 'var(--warning)' : 'var(--danger)'}"></div></div>`;
+        const overallConf = p.overallConfidence ?? p.tempConfidence;
+        const confBar = `<div class="ai-conf-bar"><div class="ai-conf-fill" style="width:${overallConf}%;background:${overallConf >= 75 ? 'var(--success)' : overallConf >= 50 ? 'var(--warning)' : 'var(--danger)'}"></div></div>`;
         return `<div class="ai-pred-row">
             <span class="ai-pred-day">${p.day}</span>
             <span class="ai-pred-temp">${maxT}° / ${minT}°</span>
             <span class="ai-pred-precip">💧${p.precipChance}%</span>
-            <span class="ai-pred-conf">${confBar}<span class="ai-conf-label">${p.tempConfidence}%</span></span>
+            <span class="ai-pred-wind">💨${Math.round(p.wind || 0)}</span>
+            <span class="ai-pred-conf">${confBar}<span class="ai-conf-label">${overallConf}%</span></span>
             ${p.aiNote ? `<span class="ai-pred-note">⚡ ${p.aiNote}</span>` : '<span></span>'}
         </div>`;
     }).join('');

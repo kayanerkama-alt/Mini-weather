@@ -1319,9 +1319,186 @@
             .detailed-grid { grid-template-columns: 1fr; }
         }
 
+        /* ===== MOBILE BOTTOM NAV ===== */
+        .bottom-nav {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border);
+            padding: 8px 0;
+            padding-bottom: calc(8px + env(safe-area-inset-bottom));
+            z-index: 900;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+        }
+
+        .bottom-nav-inner {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 16px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.65rem;
+            transition: var(--transition);
+            cursor: pointer;
+            min-width: 64px;
+            min-height: 56px;
+            justify-content: center;
+            border-radius: var(--radius-sm);
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .nav-item:active { transform: scale(0.92); }
+        .nav-item.active { color: var(--accent-light); }
+        .nav-item.active .nav-icon { color: var(--accent); }
+
+        .nav-icon { font-size: 1.4rem; transition: var(--transition); }
+        .nav-item:hover .nav-icon, .nav-item.active .nav-icon { transform: scale(1.1); }
+
+        .nav-badge {
+            position: absolute;
+            top: 4px;
+            right: 12px;
+            background: var(--danger);
+            color: #fff;
+            font-size: 0.55rem;
+            padding: 2px 5px;
+            border-radius: 10px;
+            font-weight: 600;
+            min-width: 16px;
+            text-align: center;
+        }
+
+        .nav-item { position: relative; }
+
+        /* ===== NOTIFICATION PANEL ===== */
+        .notification-panel {
+            display: none;
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            max-width: 380px;
+            background: var(--bg);
+            border-left: 1px solid var(--border);
+            z-index: 1001;
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow-y: auto;
+            padding: 16px;
+            padding-bottom: calc(16px + env(safe-area-inset-bottom));
+        }
+
+        .notification-panel.active { transform: translateX(0); display: flex; flex-direction: column; }
+
+        .notif-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .notif-panel-title { font-size: 1rem; font-weight: 600; }
+
+        .notif-clear-btn {
+            padding: 6px 12px;
+            font-size: 0.72rem;
+            min-height: 32px;
+        }
+
+        .notif-item {
+            padding: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .notif-item:hover { border-color: var(--accent); background: var(--accent-glow); }
+        .notif-item.unread { border-left: 3px solid var(--accent); }
+
+        .notif-icon { font-size: 1.2rem; margin-right: 10px; }
+        .notif-content { flex: 1; }
+        .notif-title { font-size: 0.82rem; font-weight: 600; margin-bottom: 3px; }
+        .notif-message { font-size: 0.72rem; color: var(--text-dim); line-height: 1.4; }
+        .notif-time { font-size: 0.6rem; color: var(--text-muted); margin-top: 4px; }
+        .notif-type-alert { background: rgba(244,67,54,0.08); }
+        .notif-type-warning { background: rgba(255,152,0,0.08); }
+        .notif-type-info { background: rgba(30,136,229,0.08); }
+        .notif-type-daily { background: rgba(76,175,80,0.08); }
+
+        /* ===== WEATHER REPORT CARD ===== */
+        .weather-report {
+            background: linear-gradient(135deg, var(--bg-card) 0%, rgba(255,255,255,0.03) 100%);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 18px;
+            margin-top: 14px;
+        }
+
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .report-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .report-badge {
+            font-size: 0.6rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: var(--accent-glow);
+            color: var(--accent-light);
+            font-weight: 600;
+        }
+
+        .report-content { font-size: 0.78rem; color: var(--text-dim); line-height: 1.6; }
+        .report-content strong { color: var(--text); }
+
+        .report-highlights {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .report-chip {
+            padding: 6px 12px;
+            background: var(--bg-alt);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
         /* ===== RESPONSIVE: MOBILE ===== */
         @media (max-width: 480px) {
-            #app { padding: 10px; gap: 10px; }
+            #app { padding: 10px; padding-bottom: 80px; gap: 10px; }
             .logo { font-size: 0.95rem; }
             .logo-icon { font-size: 1.2rem; }
             .controls { gap: 4px; }
@@ -1341,6 +1518,17 @@
             .theme-grid { grid-template-columns: repeat(5, 1fr); }
             .theme-swatch { width: 32px; height: 32px; }
             .location-section { flex-direction: column; align-items: flex-start; gap: 8px; }
+            .bottom-nav { display: block; }
+            .desktop-footer { display: none; }
+            header .controls .desktop-only { display: none; }
+            .modal-content { margin: 10px; padding: 16px; }
+            .report-highlights { gap: 6px; }
+            .report-chip { padding: 5px 10px; font-size: 0.65rem; }
+            .toast { bottom: calc(70px + var(--safe-bottom)); }
+            .nav-item { min-width: 56px; padding: 6px 10px; }
+            .nav-icon { font-size: 1.2rem; }
+            .favorites-bar { scroll-snap-type: x mandatory; }
+            .fav-chip { scroll-snap-align: start; }
         }
 
         /* ===== RESPONSIVE: TABLET (481px–767px) ===== */
@@ -1842,10 +2030,10 @@
 
         .ai-pred-header {
             display: grid;
-            grid-template-columns: 80px 90px 60px 1fr 1fr;
+            grid-template-columns: 70px 80px 50px 45px 1fr 1fr;
             gap: 6px;
             padding: 4px 8px;
-            font-size: 0.62rem;
+            font-size: 0.6rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             color: var(--text-muted);
@@ -1853,21 +2041,22 @@
 
         .ai-pred-row {
             display: grid;
-            grid-template-columns: 80px 90px 60px 1fr 1fr;
+            grid-template-columns: 70px 80px 50px 45px 1fr 1fr;
             gap: 6px;
             padding: 7px 8px;
             background: rgba(255,255,255,0.02);
             border: 1px solid var(--border);
             border-radius: var(--radius-sm);
-            font-size: 0.75rem;
+            font-size: 0.72rem;
             align-items: center;
         }
 
         .ai-pred-day { font-weight: 600; color: var(--text); }
         .ai-pred-temp { color: var(--accent-light); }
         .ai-pred-precip { color: #42a5f5; }
+        .ai-pred-wind { color: #81c784; font-size: 0.68rem; }
         .ai-pred-conf { display: flex; align-items: center; gap: 6px; }
-        .ai-pred-note { font-size: 0.65rem; color: var(--warning); }
+        .ai-pred-note { font-size: 0.62rem; color: var(--warning); }
 
         .ai-conf-bar {
             width: 50px;
@@ -1940,8 +2129,9 @@
         /* ===== RESPONSIVE: AI CARD MOBILE ===== */
         @media (max-width: 480px) {
             .ai-pred-header,
-            .ai-pred-row { grid-template-columns: 70px 80px 50px 1fr; }
+            .ai-pred-row { grid-template-columns: 60px 70px 45px 40px 1fr; }
             .ai-pred-note { display: none; }
+            .ai-pred-wind { display: none; }
             .ai-trend-label { width: 60px; }
         }
 
@@ -2149,7 +2339,7 @@
         </div>
     </div>
 
-    <footer>
+    <footer class="desktop-footer">
         <p>
             Mini Weather v4 &bull; Privacy-First &bull; No Tracking &bull;
             <span id="footer-api">Open-Meteo</span> &bull;
@@ -2157,6 +2347,51 @@
         </p>
     </footer>
 </div>
+
+<!-- Mobile Bottom Navigation -->
+<nav class="bottom-nav" aria-label="Main navigation">
+    <div class="bottom-nav-inner">
+        <div class="nav-item active" data-tab="home" aria-label="Home">
+            <span class="nav-icon">🏠</span>
+            <span>Home</span>
+        </div>
+        <div class="nav-item" data-tab="alerts" aria-label="Alerts">
+            <span class="nav-icon">🔔</span>
+            <span>Alerts</span>
+            <span class="nav-badge" id="nav-alert-badge" style="display:none;">0</span>
+        </div>
+        <div class="nav-item" data-tab="report" aria-label="Daily Report">
+            <span class="nav-icon">📋</span>
+            <span>Report</span>
+        </div>
+        <div class="nav-item" data-tab="hourly" aria-label="Hourly">
+            <span class="nav-icon">⏰</span>
+            <span>Hourly</span>
+        </div>
+        <div class="nav-item" data-tab="settings" aria-label="Settings">
+            <span class="nav-icon">⚙️</span>
+            <span>Settings</span>
+        </div>
+    </div>
+</nav>
+
+<!-- Notification Panel (Slide-in) -->
+<div class="notification-panel" id="notification-panel" role="dialog" aria-modal="true" aria-label="Notifications">
+    <div class="notif-panel-header">
+        <div class="notif-panel-title">🔔 Notifications</div>
+        <button class="notif-clear-btn" id="notif-clear-all">Clear All</button>
+    </div>
+    <div id="notif-list">
+        <div class="notif-empty" style="text-align:center;padding:40px 20px;color:var(--text-muted);">
+            <span style="font-size:3rem;">🔔</span>
+            <p style="margin-top:12px;font-size:0.82rem;">No notifications yet</p>
+            <p style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">Enable notifications to get weather alerts</p>
+        </div>
+    </div>
+</div>
+
+<!-- Notification Overlay for mobile panel -->
+<div id="notif-overlay" class="modal" style="background:rgba(0,0,0,0.5);z-index:1000;"></div>
 
 <!-- Search Modal -->
 <div id="search-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="search-modal-title">
